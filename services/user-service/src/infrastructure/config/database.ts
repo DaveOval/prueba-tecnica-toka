@@ -24,7 +24,56 @@ export class Database {
         return this.client;
     }
 
+    /**
+     * Crea la base de datos si no existe
+     */
+    private static async ensureDatabaseExists(): Promise<void> {
+        const connectionString = process.env.DATABASE_URL;
+        if (!connectionString) {
+            throw new Error('DATABASE_URL environment variable is not set');
+        }
+
+        // Parsear la URL de conexión PostgreSQL
+        // Formato: postgresql://user:password@host:port/database?params
+        const match = connectionString.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/([^?]+)/);
+        
+        if (!match) {
+            throw new Error('Invalid DATABASE_URL format');
+        }
+
+        const [, user, password, host, port, databaseName] = match;
+
+        // Crear una conexión a la base de datos por defecto (postgres) para crear la base de datos
+        const adminConnectionString = `postgresql://${user}:${password}@${host}:${port}/postgres`;
+        const adminPool = new Pool({ connectionString: adminConnectionString });
+
+        try {
+            // Verificar si la base de datos existe
+            const result = await adminPool.query(
+                'SELECT 1 FROM pg_database WHERE datname = $1',
+                [databaseName]
+            );
+
+            // Si no existe, crearla
+            if (result.rows.length === 0) {
+                console.log(`Creating database ${databaseName}...`);
+                await adminPool.query(`CREATE DATABASE "${databaseName}"`);
+                console.log(`Database ${databaseName} created successfully`);
+            } else {
+                console.log(`Database ${databaseName} already exists`);
+            }
+        } catch (error) {
+            console.error('Error ensuring database exists:', error);
+            throw error;
+        } finally {
+            await adminPool.end();
+        }
+    }
+
     static async initialize(): Promise<void> {
+        // Asegurar que la base de datos existe antes de conectarse
+        await this.ensureDatabaseExists();
+        
         const client = this.getClient();
         await client.$connect();
     }

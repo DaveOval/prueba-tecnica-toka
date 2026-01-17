@@ -5,6 +5,7 @@ import { Action } from '../../domain/value-objects/Action.js';
 import { EntityType } from '../../domain/value-objects/EntityType.js';
 
 interface AuditLogDocument extends mongoose.Document {
+    id: string;
     userId: string | null;
     action: Action;
     entityType: EntityType;
@@ -16,6 +17,7 @@ interface AuditLogDocument extends mongoose.Document {
 }
 
 const AuditLogSchema = new Schema<AuditLogDocument>({
+    _id: { type: String },
     userId: { type: String, required: false, index: true },
     action: { type: String, required: true, enum: Object.values(Action), index: true },
     entityType: { type: String, required: true, enum: Object.values(EntityType), index: true },
@@ -25,6 +27,7 @@ const AuditLogSchema = new Schema<AuditLogDocument>({
     userAgent: { type: String, required: false },
     timestamp: { type: Date, required: true, default: Date.now, index: true },
 }, {
+    _id: true,
     timestamps: true,
 });
 
@@ -32,19 +35,28 @@ const AuditLogModel = mongoose.model<AuditLogDocument>('AuditLog', AuditLogSchem
 
 export class MongoAuditLogRepository implements IAuditLogRepository {
     async save(auditLog: AuditLog): Promise<void> {
-        const doc = new AuditLogModel({
-            _id: auditLog.getId(),
-            userId: auditLog.getUserId(),
-            action: auditLog.getAction(),
-            entityType: auditLog.getEntityType(),
-            entityId: auditLog.getEntityId(),
-            details: auditLog.getDetails(),
-            ipAddress: auditLog.getIpAddress(),
-            userAgent: auditLog.getUserAgent(),
-            timestamp: auditLog.getTimestamp(),
-        });
+        try {
+            const doc = new AuditLogModel({
+                _id: auditLog.getId(),
+                userId: auditLog.getUserId(),
+                action: auditLog.getAction(),
+                entityType: auditLog.getEntityType(),
+                entityId: auditLog.getEntityId(),
+                details: auditLog.getDetails(),
+                ipAddress: auditLog.getIpAddress(),
+                userAgent: auditLog.getUserAgent(),
+                timestamp: auditLog.getTimestamp(),
+            });
 
-        await doc.save();
+            await doc.save();
+        } catch (error: any) {
+            // Si el documento ya existe (duplicado), no es un error crítico para auditoría
+            if (error.code === 11000) {
+                console.warn(`Audit log with id ${auditLog.getId()} already exists`);
+                return;
+            }
+            throw error;
+        }
     }
 
     async findByUserId(userId: string, limit: number = 100, offset: number = 0): Promise<AuditLog[]> {
@@ -97,8 +109,9 @@ export class MongoAuditLogRepository implements IAuditLogRepository {
     }
 
     private toDomain(doc: AuditLogDocument): AuditLog {
+        const id = typeof doc._id === 'string' ? doc._id : doc._id.toString();
         return AuditLog.create(
-            doc._id.toString(),
+            id,
             doc.userId,
             doc.action as Action,
             doc.entityType as EntityType,

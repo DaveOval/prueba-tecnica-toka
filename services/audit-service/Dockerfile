@@ -5,14 +5,10 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 
-RUN npm ci
+RUN npm install --legacy-peer-deps
 
 COPY src ./src
 
 EXPOSE 3002
 
-COPY docker-entrypoint.sh ./
-RUN chmod +x docker-entrypoint.sh
-
-ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["npm", "run", "dev"]

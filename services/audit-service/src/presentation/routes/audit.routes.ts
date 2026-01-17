@@ -5,11 +5,11 @@ export function createAuditRoutes(controller: AuditController): Router {
     const router = Router();
 
     router.post('/', (req, res, next) => {
-        controller.create(req, res).catch(next);
+        controller.create(req, res, next).catch(next);
     });
 
     router.get('/', (req, res, next) => {
-        controller.getAll(req, res).catch(next);
+        controller.getAll(req, res, next).catch(next);
     });
 
     return router;

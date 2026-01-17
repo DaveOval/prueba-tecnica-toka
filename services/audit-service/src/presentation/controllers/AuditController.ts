@@ -11,7 +11,7 @@ export class AuditController {
         private readonly getAuditLogsUseCase: GetAuditLogsUseCase
     ) {}
 
-    async create(req: Request, res: Response): Promise<void> {
+    async create(req: Request, res: Response, next: any): Promise<void> {
         try {
             const dto: CreateAuditLogDTO = {
                 userId: req.body.userId ?? null,
@@ -27,29 +27,41 @@ export class AuditController {
             res.status(201).json(result);
         } catch (error) {
             if (error instanceof Error) {
-                throw new AppError(400, error.message);
+                next(new AppError(400, error.message));
+                return;
             }
-            throw new AppError(500, 'Failed to create audit log');
+            next(new AppError(500, 'Failed to create audit log'));
         }
     }
 
-    async getAll(req: Request, res: Response): Promise<void> {
+    async getAll(req: Request, res: Response, next: any): Promise<void> {
         try {
-            const query: GetAuditLogsQueryDTO = {
-                userId: req.query.userId as string | undefined,
-                entityType: req.query.entityType as string | undefined,
-                entityId: req.query.entityId as string | undefined,
-                limit: req.query.limit ? parseInt(req.query.limit as string, 10) : undefined,
-                offset: req.query.offset ? parseInt(req.query.offset as string, 10) : undefined,
-            };
+            const query: GetAuditLogsQueryDTO = {};
+            
+            if (req.query.userId) {
+                query.userId = req.query.userId as string;
+            }
+            if (req.query.entityType) {
+                query.entityType = req.query.entityType as string;
+            }
+            if (req.query.entityId) {
+                query.entityId = req.query.entityId as string;
+            }
+            if (req.query.limit) {
+                query.limit = parseInt(req.query.limit as string, 10);
+            }
+            if (req.query.offset) {
+                query.offset = parseInt(req.query.offset as string, 10);
+            }
 
             const result = await this.getAuditLogsUseCase.execute(query);
             res.status(200).json(result);
         } catch (error) {
             if (error instanceof Error) {
-                throw new AppError(400, error.message);
+                next(new AppError(400, error.message));
+                return;
             }
-            throw new AppError(500, 'Failed to get audit logs');
+            next(new AppError(500, 'Failed to get audit logs'));
         }
     }
 }

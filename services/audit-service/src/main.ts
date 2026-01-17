@@ -48,17 +48,31 @@ async function initializeApp() {
         await eventConsumer.subscribe("audit.event", async (message) => {
             try {
                 console.log("Received audit event:", message);
-                const { userId, action, entityType, entityId, details } = message;
+                const { userId, action, entityType, entityId, details, ipAddress, userAgent } = message;
                 
                 if (action && entityType) {
+                    // Validar que action y entityType sean valores válidos
+                    if (!Object.values(Action).includes(action as Action)) {
+                        console.error(`Invalid action: ${action}`);
+                        return;
+                    }
+                    if (!Object.values(EntityType).includes(entityType as EntityType)) {
+                        console.error(`Invalid entityType: ${entityType}`);
+                        return;
+                    }
+                    
                     await createAuditLogUseCase.execute({
                         userId: userId ?? null,
                         action: action as Action,
                         entityType: entityType as EntityType,
                         entityId: entityId ?? null,
                         details: details ?? null,
+                        ipAddress: ipAddress ?? null,
+                        userAgent: userAgent ?? null,
                     });
                     console.log(`Audit log created: ${action} on ${entityType}`);
+                } else {
+                    console.error("Missing required fields: action and entityType");
                 }
             } catch (error) {
                 console.error("Error processing audit event:", error);

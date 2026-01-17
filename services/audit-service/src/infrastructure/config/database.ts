@@ -8,7 +8,10 @@ export class Database {
         }
 
         try {
-            await mongoose.connect(mongoUri);
+            await mongoose.connect(mongoUri, {
+                serverSelectionTimeoutMS: 5000,
+                socketTimeoutMS: 45000,
+            });
             console.log('MongoDB connected');
         } catch (error) {
             console.error('MongoDB connection error:', error);

@@ -6,17 +6,16 @@ COPY package*.json ./
 COPY prisma.config.ts ./
 COPY tsconfig.json ./
 
-RUN npm ci
+RUN npm install --legacy-peer-deps
 
 COPY prisma ./prisma
 COPY src ./src
 
+# Generar Prisma Client
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npm run prisma:generate
+
 EXPOSE 3001
 
-COPY docker-entrypoint.sh ./
-RUN chmod +x docker-entrypoint.sh
-
-ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["npm", "run", "dev"]
 
 

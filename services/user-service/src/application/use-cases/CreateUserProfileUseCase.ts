@@ -1,10 +1,12 @@
 import { Email } from "../../domain/value-objects/Email.js";
 import { UserDomainService } from "../../domain/services/UserDomainService.js";
 import type { CreateUserProfileDTO, CreateUserProfileResponseDTO } from "../dto/CreateUserProfileDTO.js";
+import type { ICacheService } from "../ports/ICacheService.js";
 
 export class CreateUserProfileUseCase {
     constructor(
-        private readonly userDomainService: UserDomainService
+        private readonly userDomainService: UserDomainService,
+        private readonly cacheService?: ICacheService
     ) {}
 
     async execute(dto: CreateUserProfileDTO): Promise<CreateUserProfileResponseDTO> {
@@ -19,7 +21,7 @@ export class CreateUserProfileUseCase {
             dto.address
         );
 
-        return {
+        const result: CreateUserProfileResponseDTO = {
             id: profile.getId(),
             email: profile.getEmail().getValue(),
             firstName: profile.getFirstName(),
@@ -28,5 +30,13 @@ export class CreateUserProfileUseCase {
             address: profile.getAddress(),
             createdAt: profile.getCreatedAt(),
         };
+
+        // Guardar en cache después de crear
+        if (this.cacheService) {
+            const cacheKey = `user:profile:${profile.getId()}`;
+            await this.cacheService.set(cacheKey, result, 3600);
+        }
+
+        return result;
     }
 }

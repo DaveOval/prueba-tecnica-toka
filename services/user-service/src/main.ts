@@ -2,7 +2,9 @@ import 'dotenv/config';
 import express from 'express';
 import { Database } from './infrastructure/config/database.js';
 import { initializeKafka, closeKafka } from './infrastructure/config/kafka.js';
+import { getRedisClient, closeRedis } from './infrastructure/config/redis.js';
 import { PostgresUserProfileRepository } from './infrastructure/persistence/PostgresUserProfileRepository.js';
+import { RedisCacheService } from './infrastructure/cache/RedisCacheService.js';
 import { UserDomainService } from './domain/services/UserDomainService.js';
 import { CreateUserProfileUseCase } from './application/use-cases/CreateUserProfileUseCase.js';
 import { GetUserProfileUseCase } from './application/use-cases/GetUserProfileUseCase.js';
@@ -26,22 +28,27 @@ async function initializeApp() {
         await Database.initialize();
         console.log('Database initialized');
 
+        // Initialize Redis
+        getRedisClient();
+        console.log('Redis initialized');
+
         // Initialize Kafka consumer
         const eventConsumer = await initializeKafka();
         console.log('Kafka consumer initialized');
 
         // Initialize infrastructure services
         const userProfileRepository = new PostgresUserProfileRepository();
+        const cacheService = new RedisCacheService();
 
         // Initialize domain services
         const userDomainService = new UserDomainService(userProfileRepository);
 
         // Create use cases
-        const createUserProfileUseCase = new CreateUserProfileUseCase(userDomainService);
-        const getUserProfileUseCase = new GetUserProfileUseCase(userDomainService);
-        const updateUserProfileUseCase = new UpdateUserProfileUseCase(userDomainService);
+        const createUserProfileUseCase = new CreateUserProfileUseCase(userDomainService, cacheService);
+        const getUserProfileUseCase = new GetUserProfileUseCase(userDomainService, cacheService);
+        const updateUserProfileUseCase = new UpdateUserProfileUseCase(userDomainService, cacheService);
         const getAllUsersUseCase = new GetAllUsersUseCase(userDomainService);
-        const deleteUserProfileUseCase = new DeleteUserProfileUseCase(userDomainService);
+        const deleteUserProfileUseCase = new DeleteUserProfileUseCase(userDomainService, cacheService);
 
         // Create controller
         const userController = new UserController(
@@ -90,6 +97,7 @@ process.on('SIGTERM', async () => {
     console.log('SIGTERM received, shutting down gracefully...');
     await Database.close();
     await closeKafka();
+    await closeRedis();
     process.exit(0);
 });
 
@@ -97,6 +105,7 @@ process.on('SIGINT', async () => {
     console.log('SIGINT received, shutting down gracefully...');
     await Database.close();
     await closeKafka();
+    await closeRedis();
     process.exit(0);
 });
 

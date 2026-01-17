@@ -23,11 +23,11 @@ async function initializeApp() {
     try {
         // Initialize database
         await Database.initialize();
-        console.log('✅ Database initialized');
+        console.log('Database initialized');
 
         // Initialize Kafka (ya retorna el publisher conectado)
         const eventPublisher = await initializeKafka();
-        console.log('✅ Kafka initialized');
+        console.log('Kafka initialized');
 
         // Initialize infrastructure services
         const userRepository = new PostgresUserRepository();
@@ -51,7 +51,7 @@ async function initializeApp() {
 
         const PORT = process.env.PORT || 3000;
         app.listen(PORT, () => {
-            console.log(`🚀 Auth service running on http://localhost:${PORT}`);
+            console.log(`Auth service running on http://localhost:${PORT}`);
         });
     } catch (error) {
         console.error('Failed to initialize application:', error);

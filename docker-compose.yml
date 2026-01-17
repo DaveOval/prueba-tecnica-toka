@@ -94,6 +94,28 @@ services:
       # Excluir node_modules del volumen para preservar las dependencias instaladas
       - /app/node_modules
 
+  user-service:
+    build:
+      context: ./services/user-service
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/user_db?schema=public
+      KAFKA_BROKER: kafka:9093
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      # Montar código fuente para desarrollo (hot reload)
+      - ./services/user-service/src:/app/src
+      - ./services/user-service/prisma:/app/prisma
+      # Excluir node_modules del volumen para preservar las dependencias instaladas
+      - /app/node_modules
+
 volumes:
   postgres_data:
   pgadmin_data:

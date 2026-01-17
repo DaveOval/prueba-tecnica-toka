@@ -6,15 +6,11 @@ cd /app
 npm install --legacy-peer-deps
 
 echo "Generating Prisma Client..."
-# Guardar DATABASE_URL original
 ORIGINAL_DB_URL=$DATABASE_URL
-# Prisma generate no necesita DATABASE_URL real, pero el config lo requiere
-# Usamos una URL dummy si no existe solo para generate
 export DATABASE_URL=${DATABASE_URL:-"postgresql://dummy:dummy@localhost:5432/dummy"}
 npm run prisma:generate
 
 echo "Waiting for database and pushing schema..."
-# Restaurar DATABASE_URL original para db push
 if [ -n "$ORIGINAL_DB_URL" ]; then
   export DATABASE_URL=$ORIGINAL_DB_URL
 else
@@ -22,7 +18,6 @@ else
   exit 1
 fi
 
-# Función para intentar push del schema con reintentos
 push_schema_with_retry() {
   max_attempts=30
   attempt=1
@@ -47,7 +42,7 @@ push_schema_with_retry() {
   return 1
 }
 
-# Intentar push del schema con reintentos
+
 if ! push_schema_with_retry; then
   echo "Failed to push database schema. Exiting..."
   exit 1

@@ -81,6 +81,23 @@ services:
       retries: 5
     command: redis-server --appendonly yes
 
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-admin}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-audit_db}
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   auth-service:
     build:
       context: ./services/auth-service
@@ -137,7 +154,29 @@ services:
       # Excluir node_modules del volumen para preservar las dependencias instaladas
       - /app/node_modules
 
+  audit-service:
+    build:
+      context: ./services/audit-service
+    environment:
+      MONGODB_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin}@mongodb:27017/${MONGO_DB:-audit_db}?authSource=admin
+      KAFKA_BROKER: kafka:9093
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3002
+    ports:
+      - "3002:3002"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      # (hot reload)
+      - ./services/audit-service/src:/app/src
+      # Excluir node_modules del volumen para preservar las dependencias instaladas
+      - /app/node_modules
+
 volumes:
   postgres_data:
   pgadmin_data:
   redis_data:
+  mongodb_data:

@@ -23,11 +23,20 @@ export class LoginUseCase {
         )
         const refreshToken = this.tokenService.generateRefreshToken(user.getId());
 
-        // publish event
+        // publish user.loggedIn event
         await this.eventPublisher.publish("user.loggedIn", {
             userId: user.getId(),
             email: user.getEmail().getValue(),
             timestamp: new Date().toISOString(),
+        });
+
+        // publish audit event
+        await this.eventPublisher.publish("audit.event", {
+            userId: user.getId(),
+            action: "LOGIN",
+            entityType: "AUTH",
+            entityId: user.getId(),
+            details: { email: user.getEmail().getValue() },
         });
 
         return {

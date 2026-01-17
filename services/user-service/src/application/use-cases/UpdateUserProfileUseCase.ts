@@ -1,11 +1,13 @@
 import { UserDomainService } from "../../domain/services/UserDomainService.js";
 import type { UpdateUserProfileDTO, UpdateUserProfileResponseDTO } from "../dto/UpdateUserProfileDTO.js";
 import type { ICacheService } from "../ports/ICacheService.js";
+import type { IEventPublisher } from "../ports/IEventPublisher.js";
 
 export class UpdateUserProfileUseCase {
     constructor(
         private readonly userDomainService: UserDomainService,
-        private readonly cacheService?: ICacheService
+        private readonly cacheService?: ICacheService,
+        private readonly eventPublisher?: IEventPublisher
     ) {}
 
     async execute(userId: string, dto: UpdateUserProfileDTO): Promise<UpdateUserProfileResponseDTO> {
@@ -26,6 +28,19 @@ export class UpdateUserProfileUseCase {
             const cacheKey = `user:profile:${userId}`;
             await this.cacheService.delete(cacheKey);
             await this.cacheService.set(cacheKey, result, 3600);
+        }
+
+        // publish audit event
+        if (this.eventPublisher) {
+            await this.eventPublisher.publish("audit.event", {
+                userId: userId,
+                action: "UPDATE",
+                entityType: "USER_PROFILE",
+                entityId: userId,
+                details: {
+                    updatedFields: Object.keys(dto),
+                },
+            });
         }
 
         return result;

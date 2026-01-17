@@ -16,11 +16,20 @@ export class RegisterUserUseCase {
 
         const user = await this.authDomainService.registerUser(email, password);
 
-        // publish event
+        // publish user.registered event
         await this.eventPublisher.publish("user.registered", {
             userId: user.getId(),
             email: user.getEmail().getValue(),
             timestamp: new Date().toISOString(),
+        });
+
+        // publish audit event
+        await this.eventPublisher.publish("audit.event", {
+            userId: user.getId(),
+            action: "REGISTER",
+            entityType: "AUTH",
+            entityId: user.getId(),
+            details: { email: user.getEmail().getValue() },
         });
 
         return {

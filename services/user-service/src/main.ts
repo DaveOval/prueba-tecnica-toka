@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import { Database } from './infrastructure/config/database.js';
-import { initializeKafka, closeKafka } from './infrastructure/config/kafka.js';
+import { initializeKafka, initializeKafkaPublisher, closeKafka } from './infrastructure/config/kafka.js';
 import { getRedisClient, closeRedis } from './infrastructure/config/redis.js';
 import { PostgresUserProfileRepository } from './infrastructure/persistence/PostgresUserProfileRepository.js';
 import { RedisCacheService } from './infrastructure/cache/RedisCacheService.js';
@@ -36,6 +36,10 @@ async function initializeApp() {
         const eventConsumer = await initializeKafka();
         console.log('Kafka consumer initialized');
 
+        // Initialize Kafka publisher
+        const eventPublisher = await initializeKafkaPublisher();
+        console.log('Kafka publisher initialized');
+
         // Initialize infrastructure services
         const userProfileRepository = new PostgresUserProfileRepository();
         const cacheService = new RedisCacheService();
@@ -44,11 +48,11 @@ async function initializeApp() {
         const userDomainService = new UserDomainService(userProfileRepository);
 
         // Create use cases
-        const createUserProfileUseCase = new CreateUserProfileUseCase(userDomainService, cacheService);
+        const createUserProfileUseCase = new CreateUserProfileUseCase(userDomainService, cacheService, eventPublisher);
         const getUserProfileUseCase = new GetUserProfileUseCase(userDomainService, cacheService);
-        const updateUserProfileUseCase = new UpdateUserProfileUseCase(userDomainService, cacheService);
+        const updateUserProfileUseCase = new UpdateUserProfileUseCase(userDomainService, cacheService, eventPublisher);
         const getAllUsersUseCase = new GetAllUsersUseCase(userDomainService);
-        const deleteUserProfileUseCase = new DeleteUserProfileUseCase(userDomainService, cacheService);
+        const deleteUserProfileUseCase = new DeleteUserProfileUseCase(userDomainService, cacheService, eventPublisher);
 
         // Create controller
         const userController = new UserController(

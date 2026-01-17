@@ -1,8 +1,6 @@
 import { KafkaEventConsumer } from "../messaging/KafkaEventConsumer.js";
-import { KafkaEventPublisher } from "../messaging/KafkaEventPublisher.js";
 
 let kafkaConsumer: KafkaEventConsumer | null = null;
-let kafkaPublisher: KafkaEventPublisher | null = null;
 
 export async function initializeKafka(): Promise<KafkaEventConsumer> {
     if (!kafkaConsumer) {
@@ -12,22 +10,10 @@ export async function initializeKafka(): Promise<KafkaEventConsumer> {
     return kafkaConsumer;
 }
 
-export async function initializeKafkaPublisher(): Promise<KafkaEventPublisher> {
-    if (!kafkaPublisher) {
-        kafkaPublisher = new KafkaEventPublisher();
-        await kafkaPublisher.connect();
-    }
-    return kafkaPublisher;
-}
-
 export async function closeKafka(): Promise<void> {
     if (kafkaConsumer) {
         await kafkaConsumer.stop();
         kafkaConsumer = null;
-    }
-    if (kafkaPublisher) {
-        await kafkaPublisher.disconnect();
-        kafkaPublisher = null;
     }
 }
 
@@ -36,11 +22,4 @@ export async function getKafkaConsumer(): Promise<KafkaEventConsumer> {
         throw new Error("Kafka consumer not initialized");
     }
     return kafkaConsumer;
-}
-
-export async function getKafkaPublisher(): Promise<KafkaEventPublisher> {
-    if (!kafkaPublisher) {
-        throw new Error("Kafka publisher not initialized");
-    }
-    return kafkaPublisher;
 }

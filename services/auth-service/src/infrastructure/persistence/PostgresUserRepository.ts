@@ -14,12 +14,14 @@ export class PostgresUserRepository implements IUserRepository {
           update: {
             email: user.getEmail().getValue(),
             password: user.getPassword().getHashedValue(),
+            role: user.getRole(),
             updatedAt: user.getUpdatedAt(),
           },
           create: {
             id: user.getId(),
             email: user.getEmail().getValue(),
             password: user.getPassword().getHashedValue(),
+            role: user.getRole(),
             createdAt: user.getCreatedAt(),
             updatedAt: user.getUpdatedAt(),
           },
@@ -39,6 +41,7 @@ export class PostgresUserRepository implements IUserRepository {
             userData.id,
             userData.email,
             userData.password,
+            userData.role,
             userData.createdAt,
             userData.updatedAt,
         )
@@ -57,6 +60,7 @@ export class PostgresUserRepository implements IUserRepository {
             userData.id,
             userData.email,
             userData.password,
+            userData.role,
             userData.createdAt,
             userData.updatedAt,
         )

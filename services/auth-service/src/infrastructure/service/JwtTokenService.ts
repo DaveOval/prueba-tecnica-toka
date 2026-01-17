@@ -15,10 +15,10 @@ export class JwtTokenService implements ITokenService {
         this.refreshTokenExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
     }
 
-    generateAccessToken(userId: string, email: string): string {
+    generateAccessToken(userId: string, email: string, role: string): string {
         const options: SignOptions = { expiresIn: this.accessTokenExpiresIn as StringValue };
         return jwt.sign(
-            { userId, email, type: "access" },
+            { userId, email, role, type: "access" },
             this.accessTokenSecret,
             options,
         );
@@ -33,13 +33,14 @@ export class JwtTokenService implements ITokenService {
         );
     }
 
-    verifyToken(token: string): { userId: string; email: string } | null {
+    verifyToken(token: string): { userId: string; email: string; role: string } | null {
         try {
             const decoded = jwt.verify(token, this.accessTokenSecret) as {
                 userId: string;
                 email: string;
+                role: string;
             };
-            return { userId: decoded.userId, email: decoded.email };
+            return { userId: decoded.userId, email: decoded.email, role: decoded.role || 'user' };
         } catch (error) {
             console.error("Error verifying token:", error);
             return null;

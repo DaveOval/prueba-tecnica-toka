@@ -1,6 +1,7 @@
 import { Email } from "../../domain/value-objects/Email.js";
 import { Password } from "../../domain/value-objects/Password.js";
 import { AuthDomainService } from "../../domain/services/AuthDomainService.js";
+import { UserRole } from "../../domain/entities/User.js";
 import type { IEventPublisher } from "../ports/IEventPublisher.js";
 import type { RegisterUserDTO, RegisterUserResponseDTO } from "../dto/RegisterUserDTO.js";
 
@@ -13,8 +14,18 @@ export class RegisterUserUseCase {
     async execute(dto: RegisterUserDTO): Promise<RegisterUserResponseDTO> {
         const email = Email.create(dto.email);
         const password = await Password.create(dto.password);
+        
+        // Validar y asignar role
+        let role = UserRole.USER;
+        if (dto.role) {
+            if (dto.role === 'admin') {
+                role = UserRole.ADMIN;
+            } else if (dto.role !== 'user') {
+                throw new Error('Invalid role. Must be "user" or "admin"');
+            }
+        }
 
-        const user = await this.authDomainService.registerUser(email, password);
+        const user = await this.authDomainService.registerUser(email, password, role);
 
         // publish user.registered event
         await this.eventPublisher.publish("user.registered", {

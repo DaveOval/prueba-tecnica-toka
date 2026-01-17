@@ -1,4 +1,4 @@
-import { User } from "../entities/User.js";
+import { User, UserRole } from "../entities/User.js";
 import { Email } from "../value-objects/Email.js";
 import { Password } from "../value-objects/Password.js";
 import type { IUserRepository } from "../repositories/IUserRepository.js";
@@ -6,14 +6,14 @@ import type { IUserRepository } from "../repositories/IUserRepository.js";
 export class AuthDomainService {
     constructor(private readonly userRepository: IUserRepository) {}
 
-    async registerUser(email: Email, password: Password): Promise<User> {
+    async registerUser(email: Email, password: Password, role: UserRole = UserRole.USER): Promise<User> {
         const existingUser = await this.userRepository.findByEmail(email);
         if (existingUser) {
             throw new Error("User with this email already exists");
         }
 
         const newUserId = crypto.randomUUID();
-        const newUser = User.create(newUserId, email, password);
+        const newUser = User.create(newUserId, email, password, role);
         await this.userRepository.save(newUser);
 
         return newUser;

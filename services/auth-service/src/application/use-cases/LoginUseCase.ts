@@ -19,7 +19,8 @@ export class LoginUseCase {
         // Generate tokens
         const accessToken = this.tokenService.generateAccessToken(
             user.getId(),
-            user.getEmail().getValue()
+            user.getEmail().getValue(),
+            user.getRole()
         )
         const refreshToken = this.tokenService.generateRefreshToken(user.getId());
 

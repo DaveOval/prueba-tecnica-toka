@@ -1,5 +1,5 @@
 export interface ITokenService {
-    generateAccessToken(userId: string, email: string): string;
+    generateAccessToken(userId: string, email: string, role: string): string;
     generateRefreshToken(userId: string): string;
-    verifyToken(token: string): {  userId: string; email: string } | null
+    verifyToken(token: string): {  userId: string; email: string; role: string } | null
 }

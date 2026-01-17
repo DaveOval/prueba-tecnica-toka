@@ -24,7 +24,7 @@
 					}
 				},
 				{
-					"name": "Register User",
+					"name": "Register User (Normal)",
 					"event": [
 						{
 							"listen": "test",
@@ -59,11 +59,52 @@
 							"host": ["localhost"],
 							"port": "3000",
 							"path": ["api", "auth", "register"]
-						}
+						},
+						"description": "Registra un usuario normal (role: 'user' por defecto)"
 					}
 				},
 				{
-					"name": "Login",
+					"name": "Register Admin User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.id) {",
+									"        pm.environment.set('admin_user_id', response.data.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"admin123\",\n    \"role\": \"admin\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:3000/api/auth/register",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "3000",
+							"path": ["api", "auth", "register"]
+						},
+						"description": "Registra un usuario administrador (role: 'admin')"
+					}
+				},
+				{
+					"name": "Login (Normal User)",
 					"event": [
 						{
 							"listen": "test",
@@ -99,7 +140,49 @@
 							"host": ["localhost"],
 							"port": "3000",
 							"path": ["api", "auth", "login"]
+						},
+						"description": "Inicia sesión como usuario normal. El token se guarda automáticamente en la variable 'access_token'"
+					}
+				},
+				{
+					"name": "Login (Admin User)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.accessToken) {",
+									"        pm.environment.set('admin_access_token', response.data.accessToken);",
+									"        pm.environment.set('admin_refresh_token', response.data.refreshToken);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
 						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"admin123\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:3000/api/auth/login",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "3000",
+							"path": ["api", "auth", "login"]
+						},
+						"description": "Inicia sesión como administrador. El token se guarda automáticamente en la variable 'admin_access_token'"
 					}
 				}
 			]
@@ -129,6 +212,11 @@
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
 							}
 						],
 						"body": {
@@ -141,35 +229,50 @@
 							"host": ["localhost"],
 							"port": "3001",
 							"path": ["api", "users"]
-						}
+						},
+						"description": "Crea un perfil de usuario. Requiere autenticación (cualquier usuario autenticado puede crear su perfil)"
 					}
 				},
 				{
 					"name": "Get All Users",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_access_token}}",
+								"type": "text"
+							}
+						],
 						"url": {
 							"raw": "http://localhost:3001/api/users",
 							"protocol": "http",
 							"host": ["localhost"],
 							"port": "3001",
 							"path": ["api", "users"]
-						}
+						},
+						"description": "Obtiene todos los usuarios. SOLO ADMIN puede acceder a este endpoint"
 					}
 				},
 				{
 					"name": "Get User by ID",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
 						"url": {
 							"raw": "http://localhost:3001/api/users/{{user_id}}",
 							"protocol": "http",
 							"host": ["localhost"],
 							"port": "3001",
 							"path": ["api", "users", "{{user_id}}"]
-						}
+						},
+						"description": "Obtiene un usuario por ID. Usuarios normales solo pueden ver su propio perfil. Admin puede ver cualquier perfil"
 					}
 				},
 				{
@@ -180,6 +283,11 @@
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_access_token}}",
+								"type": "text"
 							}
 						],
 						"body": {
@@ -192,21 +300,29 @@
 							"host": ["localhost"],
 							"port": "3001",
 							"path": ["api", "users", "{{user_id}}"]
-						}
+						},
+						"description": "Actualiza un perfil de usuario. SOLO ADMIN puede editar perfiles"
 					}
 				},
 				{
 					"name": "Delete User Profile",
 					"request": {
 						"method": "DELETE",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_access_token}}",
+								"type": "text"
+							}
+						],
 						"url": {
 							"raw": "http://localhost:3001/api/users/{{user_id}}",
 							"protocol": "http",
 							"host": ["localhost"],
 							"port": "3001",
 							"path": ["api", "users", "{{user_id}}"]
-						}
+						},
+						"description": "Elimina un perfil de usuario. SOLO ADMIN puede eliminar perfiles"
 					}
 				}
 			]
@@ -355,6 +471,21 @@
 		},
 		{
 			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "admin_user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "admin_access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "admin_refresh_token",
 			"value": "",
 			"type": "string"
 		}

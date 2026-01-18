@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../shared/hooks/useAuth';
+import { routes } from '../app/routing/routes';
 
 export default function LoginPage() {
     const { login } = useAuth();
@@ -79,6 +81,18 @@ export default function LoginPage() {
                         </button>
                     </div>
                 </form>
+
+                <div className="mt-6 text-center">
+                    <p className="text-sm text-slate-400">
+                        ¿No tienes una cuenta?{' '}
+                        <Link
+                            to={routes.signin}
+                            className="font-medium text-blue-400 hover:text-blue-300 transition"
+                        >
+                            Regístrate aquí
+                        </Link>
+                    </p>
+                </div>
             </div>
         </div>
     );

@@ -7,6 +7,8 @@ import { JwtTokenService } from './infrastructure/service/JwtTokenService.js';
 import { AuthDomainService } from './domain/services/AuthDomainService.js';
 import { RegisterUserUseCase } from './application/use-cases/RegisterUserUseCase.js';
 import { LoginUseCase } from './application/use-cases/LoginUseCase.js';
+import { ActivateUserUseCase } from './application/use-cases/ActivateUserUseCase.js';
+import { GetAllUsersUseCase } from './application/use-cases/GetAllUsersUseCase.js';
 import { AuthController } from './presentation/controllers/AuthController.js';
 import { createAuthRoutes } from './presentation/routes/auth.routes.js';
 import { errorHandler } from './presentation/middlewares/errorHandler.js';
@@ -39,9 +41,11 @@ async function initializeApp() {
         // Create use cases
         const registerUserUseCase = new RegisterUserUseCase(authDomainService, eventPublisher);
         const loginUseCase = new LoginUseCase(authDomainService, tokenService, eventPublisher);
+        const activateUserUseCase = new ActivateUserUseCase(authDomainService, eventPublisher);
+        const getAllUsersUseCase = new GetAllUsersUseCase(userRepository);
 
         // Create controller
-        const authController = new AuthController(registerUserUseCase, loginUseCase);
+        const authController = new AuthController(registerUserUseCase, loginUseCase, activateUserUseCase, getAllUsersUseCase);
 
         // Create routes
         app.use("/api/auth", createAuthRoutes(authController));

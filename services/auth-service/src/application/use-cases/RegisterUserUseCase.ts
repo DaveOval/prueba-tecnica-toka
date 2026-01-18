@@ -15,17 +15,8 @@ export class RegisterUserUseCase {
         const email = Email.create(dto.email);
         const password = await Password.create(dto.password);
         
-        // Validar y asignar role
-        let role = UserRole.USER;
-        if (dto.role) {
-            if (dto.role === 'admin') {
-                role = UserRole.ADMIN;
-            } else if (dto.role !== 'user') {
-                throw new Error('Invalid role. Must be "user" or "admin"');
-            }
-        }
-
-        const user = await this.authDomainService.registerUser(email, password, role);
+        // Todos los usuarios registrados son USER y se crean inactivos
+        const user = await this.authDomainService.registerUser(email, password, UserRole.USER, false);
 
         // publish user.registered event
         await this.eventPublisher.publish("user.registered", {

@@ -60,47 +60,7 @@
 							"port": "3000",
 							"path": ["api", "auth", "register"]
 						},
-						"description": "Registra un usuario normal (role: 'user' por defecto)"
-					}
-				},
-				{
-					"name": "Register Admin User",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 201) {",
-									"    const response = pm.response.json();",
-									"    if (response.data && response.data.id) {",
-									"        pm.environment.set('admin_user_id', response.data.id);",
-									"    }",
-									"}"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"admin123\",\n    \"role\": \"admin\"\n}"
-						},
-						"url": {
-							"raw": "http://localhost:3000/api/auth/register",
-							"protocol": "http",
-							"host": ["localhost"],
-							"port": "3000",
-							"path": ["api", "auth", "register"]
-						},
-						"description": "Registra un usuario administrador (role: 'admin')"
+						"description": "Registra un usuario normal. Los usuarios se crean inactivos y necesitan aprobación de un administrador antes de poder iniciar sesión. El usuario admin se crea automáticamente al iniciar el servicio (por defecto: admin@example.com / admin123)."
 					}
 				},
 				{
@@ -141,7 +101,7 @@
 							"port": "3000",
 							"path": ["api", "auth", "login"]
 						},
-						"description": "Inicia sesión como usuario normal. El token se guarda automáticamente en la variable 'access_token'"
+						"description": "Inicia sesión como usuario normal. Solo usuarios activos pueden iniciar sesión. El token se guarda automáticamente en la variable 'access_token'"
 					}
 				},
 				{
@@ -182,7 +142,49 @@
 							"port": "3000",
 							"path": ["api", "auth", "login"]
 						},
-						"description": "Inicia sesión como administrador. El token se guarda automáticamente en la variable 'admin_access_token'"
+						"description": "Inicia sesión como administrador (usuario inicial creado automáticamente). Credenciales por defecto: admin@example.com / admin123. El token se guarda automáticamente en la variable 'admin_access_token'"
+					}
+				},
+				{
+					"name": "Get All Users (Auth)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_access_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:3000/api/auth/users",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "3000",
+							"path": ["api", "auth", "users"]
+						},
+						"description": "Obtiene todos los usuarios del sistema con su estado (activo/inactivo). SOLO ADMIN"
+					}
+				},
+				{
+					"name": "Activate User",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{admin_access_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:3000/api/auth/activate/{{user_id}}",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "3000",
+							"path": ["api", "auth", "activate", "{{user_id}}"]
+						},
+						"description": "Activa un usuario pendiente de aprobación. SOLO ADMIN"
 					}
 				}
 			]

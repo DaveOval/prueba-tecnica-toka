@@ -47,11 +47,9 @@ export function useAuth() {
             const response = await authService.register(data);
             
             if (response.success) {
-                // Después de registrar, hacer login automático
-                return await handleLogin({
-                    email: data.email,
-                    password: data.password,
-                });
+                // No hacer login automático porque el usuario estará inactivo
+                // El usuario debe esperar aprobación del admin
+                return { success: true };
             }
             
             return { success: false, error: 'Error al registrar usuario' };

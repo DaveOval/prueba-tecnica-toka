@@ -42,6 +42,20 @@ export const authApi = axios.create({
     },
 });
 
+// Interceptor para agregar token a authApi (para endpoints protegidos)
+authApi.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('access_token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
 // Cliente específico para User Service
 export const userApi = axios.create({
     baseURL: import.meta.env.VITE_API_USER_URL || 'http://localhost:3001/api/users',

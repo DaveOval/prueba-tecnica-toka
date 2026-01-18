@@ -15,6 +15,7 @@ export class PostgresUserRepository implements IUserRepository {
             email: user.getEmail().getValue(),
             password: user.getPassword().getHashedValue(),
             role: user.getRole(),
+            active: user.isActive(),
             updatedAt: user.getUpdatedAt(),
           },
           create: {
@@ -22,6 +23,7 @@ export class PostgresUserRepository implements IUserRepository {
             email: user.getEmail().getValue(),
             password: user.getPassword().getHashedValue(),
             role: user.getRole(),
+            active: user.isActive(),
             createdAt: user.getCreatedAt(),
             updatedAt: user.getUpdatedAt(),
           },
@@ -42,6 +44,7 @@ export class PostgresUserRepository implements IUserRepository {
             userData.email,
             userData.password,
             userData.role,
+            userData.active,
             userData.createdAt,
             userData.updatedAt,
         )
@@ -61,6 +64,7 @@ export class PostgresUserRepository implements IUserRepository {
             userData.email,
             userData.password,
             userData.role,
+            userData.active,
             userData.createdAt,
             userData.updatedAt,
         )
@@ -72,5 +76,23 @@ export class PostgresUserRepository implements IUserRepository {
         });
 
         return count > 0;
+      }
+
+      async findAll(): Promise<User[]> {
+        const usersData = await this.prisma.user.findMany({
+            orderBy: { createdAt: 'desc' },
+        });
+
+        return usersData.map(userData => 
+            User.reconstitute(
+                userData.id,
+                userData.email,
+                userData.password,
+                userData.role,
+                userData.active,
+                userData.createdAt,
+                userData.updatedAt,
+            )
+        );
       }
 }

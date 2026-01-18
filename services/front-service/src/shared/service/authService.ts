@@ -8,7 +8,6 @@ export interface LoginCredentials {
 export interface RegisterData {
     email: string;
     password: string;
-    role?: 'user' | 'admin';
 };
 
 export interface LoginResponse {
@@ -40,6 +39,16 @@ export const authService = {
 
     async register(data: RegisterData): Promise<RegisterResponse> {
         const response = await authApi.post<RegisterResponse>('/register', data);
+        return response.data;
+    },
+
+    async getAllUsers(): Promise<{ success: boolean; data: Array<{ id: string; email: string; role: string; active: boolean; createdAt: string; updatedAt: string }> }> {
+        const response = await authApi.get<{ success: boolean; data: Array<{ id: string; email: string; role: string; active: boolean; createdAt: string; updatedAt: string }> }>('/users');
+        return response.data;
+    },
+
+    async activateUser(userId: string): Promise<{ success: boolean; message: string }> {
+        const response = await authApi.patch<{ success: boolean; message: string }>(`/activate/${userId}`);
         return response.data;
     },
 

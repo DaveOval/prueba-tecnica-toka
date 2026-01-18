@@ -12,10 +12,8 @@ class DocumentProcessor(IDocumentProcessor):
 
         if ext == ".pdf":
             text = await self._extract_pdf_text(file_path)
-        elif ext in [".txt", ".md"]:
-            text = await self._extract_text_file(file_path)
         else:
-            raise ValueError(f"Unsupported file type: {ext}")
+            raise ValueError(f"Only PDF files are supported. Received: {ext}")
 
         # Dividir en chunks
         return await self.chunk_text(text)

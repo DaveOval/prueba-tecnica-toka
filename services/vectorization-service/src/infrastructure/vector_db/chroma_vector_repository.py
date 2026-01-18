@@ -23,21 +23,31 @@ class ChromaVectorRepository(IVectorRepository):
             # Solo verificamos que podamos acceder a ella
             collection = self.client.get_or_create_collection(
                 name=collection_name,
-                metadata={"hnsw:space": "cosine"}
+                metadata={"hnsw:space": "cosine"} if vector_size else {}
             )
             return True
         except Exception as e:
-            print(f"Error creating collection: {e}")
-            return False
+            # Si falla, intentar obtener la colección existente
+            try:
+                collection = self.client.get_collection(name=collection_name)
+                return True
+            except:
+                print(f"Error creating/accessing collection: {e}")
+                return False
 
     async def upsert_chunks(
         self, collection_name: str, chunks: List[DocumentChunk]
     ) -> bool:
         try:
-            collection = self.client.get_or_create_collection(
-                name=collection_name,
-                metadata={"hnsw:space": "cosine"}
-            )
+            # Intentar obtener la colección existente primero
+            try:
+                collection = self.client.get_collection(name=collection_name)
+            except:
+                # Si no existe, crearla
+                collection = self.client.get_or_create_collection(
+                    name=collection_name,
+                    metadata={"hnsw:space": "cosine"}
+                )
             
             ids = []
             embeddings = []

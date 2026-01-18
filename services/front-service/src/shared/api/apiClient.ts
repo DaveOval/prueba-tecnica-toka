@@ -36,7 +36,7 @@ apiClient.interceptors.response.use(
 
 // Cliente específico para Auth Service
 export const authApi = axios.create({
-    baseURL: import.meta.env.VITE_API_AUTH_URL || 'http://localhost:3000/api/auth',
+    baseURL: import.meta.env.VITE_API_AUTH_URL || '/api/auth',
     headers: {
         'Content-Type': 'application/json',
     },
@@ -58,7 +58,7 @@ authApi.interceptors.request.use(
 
 // Cliente específico para User Service
 export const userApi = axios.create({
-    baseURL: import.meta.env.VITE_API_USER_URL || 'http://localhost:3001/api/users',
+    baseURL: import.meta.env.VITE_API_USER_URL || '/api/users',
     headers: {
         'Content-Type': 'application/json',
     },
@@ -93,7 +93,7 @@ userApi.interceptors.response.use(
 
 // Cliente específico para Audit Service
 export const auditApi = axios.create({
-    baseURL: import.meta.env.VITE_API_AUDIT_URL || 'http://localhost:3002/api/audit',
+    baseURL: import.meta.env.VITE_API_AUDIT_URL || '/api/audit',
     headers: {
         'Content-Type': 'application/json',
     },
@@ -128,7 +128,7 @@ auditApi.interceptors.response.use(
 
 // Cliente específico para AI Chat Service
 export const aiChatApi = axios.create({
-    baseURL: import.meta.env.VITE_API_AI_CHAT_URL || 'http://localhost:3004/api/ai',
+    baseURL: import.meta.env.VITE_API_AI_CHAT_URL || '/api/ai',
     headers: {
         'Content-Type': 'application/json',
     },
@@ -162,7 +162,7 @@ aiChatApi.interceptors.response.use(
 
 // Cliente específico para Vectorization Service (documentos)
 export const vectorizationApi = axios.create({
-    baseURL: import.meta.env.VITE_API_VECTORIZATION_URL || 'http://localhost:3003/api/ai',
+    baseURL: import.meta.env.VITE_API_VECTORIZATION_URL || '/api/ai',
     headers: {
         'Content-Type': 'application/json',
     },

@@ -253,12 +253,12 @@ services:
     build:
       context: ./services/front-service
     environment:
-      VITE_API_AUTH_URL: ${VITE_API_AUTH_URL:-http://localhost:3000/api/auth}
-      VITE_API_USER_URL: ${VITE_API_USER_URL:-http://localhost:3001/api/users}
-      VITE_API_AUDIT_URL: ${VITE_API_AUDIT_URL:-http://localhost:3002/api/audit}
-      VITE_API_AI_CHAT_URL: ${VITE_API_AI_CHAT_URL:-http://localhost:3004/api/ai}
-      VITE_API_VECTORIZATION_URL: ${VITE_API_VECTORIZATION_URL:-http://localhost:3003/api/ai}
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+      VITE_API_AUTH_URL: ${VITE_API_AUTH_URL:-/api/auth}
+      VITE_API_USER_URL: ${VITE_API_USER_URL:-/api/users}
+      VITE_API_AUDIT_URL: ${VITE_API_AUDIT_URL:-/api/audit}
+      VITE_API_AI_CHAT_URL: ${VITE_API_AI_CHAT_URL:-/api/ai}
+      VITE_API_VECTORIZATION_URL: ${VITE_API_VECTORIZATION_URL:-/api/ai}
+      VITE_API_URL: ${VITE_API_URL:-/api/auth}
     ports:
       - "5173:5173"
     depends_on:

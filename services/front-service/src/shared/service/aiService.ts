@@ -138,7 +138,7 @@ export const aiService = {
         if (document.name) formData.append('name', document.name);
         if (document.description) formData.append('description', document.description);
 
-        const response = await vectorizationApi.post<DocumentUploadResponse>>(
+        const response = await vectorizationApi.post<DocumentUploadResponse>(
             '/documents/upload',
             formData,
             {

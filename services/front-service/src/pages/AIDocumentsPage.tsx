@@ -11,6 +11,7 @@ export default function AIDocumentsPage() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [documentName, setDocumentName] = useState('');
     const [documentDescription, setDocumentDescription] = useState('');
+    const [fileError, setFileError] = useState<string | null>(null);
 
     useEffect(() => {
         fetchDocuments();
@@ -32,11 +33,38 @@ export default function AIDocumentsPage() {
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            setSelectedFile(file);
-            if (!documentName) {
-                setDocumentName(file.name);
-            }
+        setFileError(null);
+        
+        if (!file) {
+            setSelectedFile(null);
+            return;
+        }
+        
+        // Validar tipo de archivo (solo PDF)
+        const fileExtension = file.name.split('.').pop()?.toLowerCase();
+        if (fileExtension !== 'pdf') {
+            setFileError('Solo se permiten archivos PDF');
+            setSelectedFile(null);
+            e.target.value = ''; // Limpiar input
+            return;
+        }
+        
+        // Validar tamaño (50MB por defecto, puede venir de env)
+        const maxSizeMB = 50;
+        const maxSizeBytes = maxSizeMB * 1024 * 1024;
+        
+        if (file.size > maxSizeBytes) {
+            const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+            setFileError(`El archivo excede el tamaño máximo de ${maxSizeMB}MB. Tamaño: ${fileSizeMB}MB`);
+            setSelectedFile(null);
+            e.target.value = ''; // Limpiar input
+            return;
+        }
+        
+        // Archivo válido
+        setSelectedFile(file);
+        if (!documentName) {
+            setDocumentName(file.name);
         }
     };
 
@@ -57,11 +85,14 @@ export default function AIDocumentsPage() {
                 setSelectedFile(null);
                 setDocumentName('');
                 setDocumentDescription('');
+                setFileError(null);
                 fetchDocuments();
             }
         } catch (error: any) {
             console.error('Error uploading document:', error);
-            alert(error.response?.data?.error?.message || 'Error al subir documento');
+            const errorMessage = error.response?.data?.detail || error.response?.data?.error?.message || 'Error al subir documento';
+            setFileError(errorMessage);
+            alert(errorMessage);
         } finally {
             setUploading(false);
         }
@@ -187,16 +218,24 @@ export default function AIDocumentsPage() {
 
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium mb-2">Archivo</label>
+                                <label className="block text-sm font-medium mb-2">Archivo PDF</label>
                                 <input
                                     type="file"
                                     onChange={handleFileSelect}
-                                    accept=".pdf,.txt,.doc,.docx,.md"
+                                    accept=".pdf"
                                     className="w-full px-3 py-2 border border-slate-700 bg-slate-800 rounded-lg text-slate-100"
                                 />
                                 {selectedFile && (
-                                    <p className="text-sm text-slate-400 mt-1">{selectedFile.name}</p>
+                                    <p className="text-sm text-slate-400 mt-1">
+                                        {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                                    </p>
                                 )}
+                                {fileError && (
+                                    <p className="text-sm text-red-400 mt-1">{fileError}</p>
+                                )}
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Solo archivos PDF. Tamaño máximo: 50MB
+                                </p>
                             </div>
 
                             <div>
@@ -229,6 +268,7 @@ export default function AIDocumentsPage() {
                                     setSelectedFile(null);
                                     setDocumentName('');
                                     setDocumentDescription('');
+                                    setFileError(null);
                                 }}
                                 className="flex-1 px-4 py-2 border border-slate-700 hover:bg-slate-800 rounded-lg transition"
                             >

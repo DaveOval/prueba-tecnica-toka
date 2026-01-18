@@ -6,12 +6,17 @@ from src.application.ports.illm_service import ILLMService
 
 class OpenAILLMService(ILLMService):
     def __init__(self):
-        api_key = os.getenv("OPENAI_API_KEY")
-        model = os.getenv("LLM_MODEL", "gpt-4o-mini")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable is required")
-        self.client = AsyncOpenAI(api_key=api_key)
-        self.model = model
+        self.api_key = os.getenv("OPENAI_API_KEY")
+        self.model = os.getenv("LLM_MODEL", "gpt-4o-mini")
+        self.client = None
+        # El cliente se inicializará lazy cuando se necesite
+
+    def _ensure_client(self):
+        """Inicializa el cliente si no está inicializado"""
+        if not self.client:
+            if not self.api_key:
+                raise ValueError("OPENAI_API_KEY environment variable is required")
+            self.client = AsyncOpenAI(api_key=self.api_key)
 
     async def generate_response(
         self,
@@ -19,6 +24,9 @@ class OpenAILLMService(ILLMService):
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
     ) -> Dict[str, Any]:
+        # Asegurar que el cliente esté inicializado
+        self._ensure_client()
+        
         # Preparar mensajes
         chat_messages = []
         if system_prompt:

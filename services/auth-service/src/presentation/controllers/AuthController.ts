@@ -4,6 +4,7 @@ import { LoginUseCase } from '../../application/use-cases/LoginUseCase.js';
 import { ActivateUserUseCase } from '../../application/use-cases/ActivateUserUseCase.js';
 import { DeactivateUserUseCase } from '../../application/use-cases/DeactivateUserUseCase.js';
 import { ChangeUserRoleUseCase } from '../../application/use-cases/ChangeUserRoleUseCase.js';
+import { DeleteUserUseCase } from '../../application/use-cases/DeleteUserUseCase.js';
 import { GetAllUsersUseCase } from '../../application/use-cases/GetAllUsersUseCase.js';
 import type { RegisterUserDTO } from '../../application/dto/RegisterUserDTO.js';
 import type { LoginDTO } from '../../application/dto/LoginDTO.js';
@@ -16,6 +17,7 @@ export class AuthController {
     private readonly activateUserUseCase: ActivateUserUseCase,
     private readonly deactivateUserUseCase: DeactivateUserUseCase,
     private readonly changeUserRoleUseCase: ChangeUserRoleUseCase,
+    private readonly deleteUserUseCase: DeleteUserUseCase,
     private readonly getAllUsersUseCase: GetAllUsersUseCase
   ) {}
 
@@ -129,6 +131,10 @@ export class AuthController {
           next(new AppError(404, error.message));
           return;
         }
+        if (error.message === 'Cannot deactivate admin users') {
+          next(new AppError(403, error.message));
+          return;
+        }
       }
       next(error);
     }
@@ -154,6 +160,35 @@ export class AuthController {
       if (error instanceof Error) {
         if (error.message === 'User not found') {
           next(new AppError(404, error.message));
+          return;
+        }
+        if (error.message === 'Cannot remove admin role from admin users') {
+          next(new AppError(403, error.message));
+          return;
+        }
+      }
+      next(error);
+    }
+  };
+
+  delete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { userId } = req.params;
+
+      await this.deleteUserUseCase.execute(userId);
+
+      res.status(200).json({
+        success: true,
+        message: 'User deleted successfully',
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === 'User not found') {
+          next(new AppError(404, error.message));
+          return;
+        }
+        if (error.message === 'Cannot delete admin users') {
+          next(new AppError(403, error.message));
           return;
         }
       }

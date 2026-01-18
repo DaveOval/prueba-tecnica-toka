@@ -102,7 +102,11 @@ export default function UsersPage() {
 
         try {
             setDeletingUserId(userId);
-            await userService.deleteUserProfile(userId);
+            // Eliminar tanto el perfil como el usuario de autenticación
+            await Promise.all([
+                userService.deleteUserProfile(userId),
+                authService.deleteUser(userId),
+            ]);
             await fetchData();
         } catch (err: unknown) {
             if (err instanceof AxiosError) {
@@ -311,37 +315,47 @@ export default function UsersPage() {
                                                         <div className="flex flex-wrap gap-2">
                                                             {profile && (
                                                                 <>
-                                                                    <button
-                                                                        onClick={() => handleEdit(profile)}
-                                                                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition"
-                                                                    >
-                                                                        Editar
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => handleDeactivate(authUser.id)}
-                                                                        disabled={deactivatingUserId === authUser.id}
-                                                                        className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition"
-                                                                    >
-                                                                        {deactivatingUserId === authUser.id ? 'Desactivando...' : 'Desactivar'}
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => handleChangeRole(authUser.id, authUser.role)}
-                                                                        disabled={changingRoleUserId === authUser.id}
-                                                                        className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition"
-                                                                    >
-                                                                        {changingRoleUserId === authUser.id 
-                                                                            ? 'Cambiando...' 
-                                                                            : authUser.role === 'admin' 
-                                                                                ? 'Quitar Admin' 
+                                                                    {/* Solo mostrar botón de editar si no es admin */}
+                                                                    {authUser.role !== 'admin' && (
+                                                                        <button
+                                                                            onClick={() => handleEdit(profile)}
+                                                                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition"
+                                                                        >
+                                                                            Editar
+                                                                        </button>
+                                                                    )}
+                                                                    {/* Solo mostrar botón de desactivar si no es admin */}
+                                                                    {authUser.role !== 'admin' && (
+                                                                        <button
+                                                                            onClick={() => handleDeactivate(authUser.id)}
+                                                                            disabled={deactivatingUserId === authUser.id}
+                                                                            className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                                                        >
+                                                                            {deactivatingUserId === authUser.id ? 'Desactivando...' : 'Desactivar'}
+                                                                        </button>
+                                                                    )}
+                                                                    {/* Solo mostrar botón de cambiar rol si no es admin */}
+                                                                    {authUser.role !== 'admin' && (
+                                                                        <button
+                                                                            onClick={() => handleChangeRole(authUser.id, authUser.role)}
+                                                                            disabled={changingRoleUserId === authUser.id}
+                                                                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                                                        >
+                                                                            {changingRoleUserId === authUser.id 
+                                                                                ? 'Cambiando...' 
                                                                                 : 'Hacer Admin'}
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => handleDelete(authUser.id)}
-                                                                        disabled={deletingUserId === authUser.id}
-                                                                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition"
-                                                                    >
-                                                                        {deletingUserId === authUser.id ? 'Eliminando...' : 'Eliminar'}
-                                                                    </button>
+                                                                        </button>
+                                                                    )}
+                                                                    {/* Solo mostrar botón de eliminar si no es admin */}
+                                                                    {authUser.role !== 'admin' && (
+                                                                        <button
+                                                                            onClick={() => handleDelete(authUser.id)}
+                                                                            disabled={deletingUserId === authUser.id}
+                                                                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                                                        >
+                                                                            {deletingUserId === authUser.id ? 'Eliminando...' : 'Eliminar'}
+                                                                        </button>
+                                                                    )}
                                                                 </>
                                                             )}
                                                         </div>

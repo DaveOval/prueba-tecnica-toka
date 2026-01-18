@@ -84,4 +84,13 @@ export class AuthDomainService {
 
         return user;
     }
+
+    async deleteUser(userId: string): Promise<void> {
+        const user = await this.userRepository.findById(userId);
+        if (!user) {
+            throw new Error("User not found");
+        }
+
+        await this.userRepository.delete(userId);
+    }
 }

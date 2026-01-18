@@ -2,12 +2,12 @@ import { AuthDomainService } from "../../domain/services/AuthDomainService.js";
 import type { IEventPublisher } from "../ports/IEventPublisher.js";
 import type { IUserRepository } from "../../domain/repositories/IUserRepository.js";
 
-export class DeactivateUserUseCase {
+export class DeleteUserUseCase {
     constructor(
         private readonly authDomainService: AuthDomainService,
         private readonly userRepository: IUserRepository,
         private readonly eventPublisher: IEventPublisher
-    ){}
+    ) {}
 
     async execute(userId: string): Promise<void> {
         // Verificar que el usuario existe y no es admin
@@ -16,20 +16,19 @@ export class DeactivateUserUseCase {
             throw new Error("User not found");
         }
 
-        // No permitir desactivar a otros admins
+        // No permitir eliminar a otros admins
         if (user.isAdmin()) {
-            throw new Error("Cannot deactivate admin users");
+            throw new Error("Cannot delete admin users");
         }
 
-        const deactivatedUser = await this.authDomainService.deactivateUser(userId);
+        await this.authDomainService.deleteUser(userId);
 
         // publish audit event
         await this.eventPublisher.publish("audit.event", {
-            userId: deactivatedUser.getId(),
-            action: "DEACTIVATE",
+            userId: userId,
+            action: "DELETE",
             entityType: "AUTH",
-            entityId: deactivatedUser.getId(),
-            details: { email: deactivatedUser.getEmail().getValue() },
+            entityId: userId,
         });
     }
 }

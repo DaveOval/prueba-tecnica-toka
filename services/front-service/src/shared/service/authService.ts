@@ -62,6 +62,11 @@ export const authService = {
         return response.data;
     },
 
+    async deleteUser(userId: string): Promise<{ success: boolean; message: string }> {
+        const response = await authApi.delete<{ success: boolean; message: string }>(`/${userId}`);
+        return response.data;
+    },
+
     decodeToken(token: string): { userId: string; email: string; role: string } | null {
         try {
             const payload = JSON.parse(atob(token.split('.')[1]));

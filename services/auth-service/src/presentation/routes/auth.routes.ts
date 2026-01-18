@@ -16,6 +16,7 @@ export function createAuthRoutes(authController: AuthController): Router {
     router.patch('/activate/:userId', authenticate, authorize('admin'), authController.activate);
     router.patch('/deactivate/:userId', authenticate, authorize('admin'), authController.deactivate);
     router.patch('/change-role/:userId', authenticate, authorize('admin'), authController.changeRole);
+    router.delete('/:userId', authenticate, authorize('admin'), authController.delete);
 
     return router;
 }

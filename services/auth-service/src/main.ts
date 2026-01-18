@@ -11,6 +11,7 @@ import { LoginUseCase } from './application/use-cases/LoginUseCase.js';
 import { ActivateUserUseCase } from './application/use-cases/ActivateUserUseCase.js';
 import { DeactivateUserUseCase } from './application/use-cases/DeactivateUserUseCase.js';
 import { ChangeUserRoleUseCase } from './application/use-cases/ChangeUserRoleUseCase.js';
+import { DeleteUserUseCase } from './application/use-cases/DeleteUserUseCase.js';
 import { GetAllUsersUseCase } from './application/use-cases/GetAllUsersUseCase.js';
 import { AuthController } from './presentation/controllers/AuthController.js';
 import { createAuthRoutes } from './presentation/routes/auth.routes.js';
@@ -69,8 +70,9 @@ async function initializeApp() {
         const registerUserUseCase = new RegisterUserUseCase(authDomainService, eventPublisher);
         const loginUseCase = new LoginUseCase(authDomainService, tokenService, eventPublisher);
         const activateUserUseCase = new ActivateUserUseCase(authDomainService, eventPublisher);
-        const deactivateUserUseCase = new DeactivateUserUseCase(authDomainService, eventPublisher);
-        const changeUserRoleUseCase = new ChangeUserRoleUseCase(authDomainService, eventPublisher);
+        const deactivateUserUseCase = new DeactivateUserUseCase(authDomainService, userRepository, eventPublisher);
+        const changeUserRoleUseCase = new ChangeUserRoleUseCase(authDomainService, userRepository, eventPublisher);
+        const deleteUserUseCase = new DeleteUserUseCase(authDomainService, userRepository, eventPublisher);
         const getAllUsersUseCase = new GetAllUsersUseCase(userRepository);
 
         // Create controller
@@ -80,6 +82,7 @@ async function initializeApp() {
             activateUserUseCase,
             deactivateUserUseCase,
             changeUserRoleUseCase,
+            deleteUserUseCase,
             getAllUsersUseCase
         );
 

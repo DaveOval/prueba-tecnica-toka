@@ -203,7 +203,9 @@ async def upload_document(
             document_chunks.append(chunk)
         
         # 4. Guardar en Chroma
-        await vector_repository.upsert_chunks("documents", document_chunks)
+        upsert_result = await vector_repository.upsert_chunks("documents", document_chunks)
+        if not upsert_result:
+            raise HTTPException(status_code=500, detail="Failed to save document chunks to vector database")
         
         # 5. Publicar evento (opcional)
         try:

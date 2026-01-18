@@ -19,35 +19,82 @@ class ChromaVectorRepository(IVectorRepository):
 
     async def create_collection(self, collection_name: str, vector_size: int) -> bool:
         try:
-            # Chroma crea la colección automáticamente si no existe
-            # Solo verificamos que podamos acceder a ella
-            collection = self.client.get_or_create_collection(
-                name=collection_name,
-                metadata={"hnsw:space": "cosine"} if vector_size else {}
-            )
-            return True
-        except Exception as e:
-            # Si falla, intentar obtener la colección existente
+            # Intentar obtener la colección existente primero
             try:
                 collection = self.client.get_collection(name=collection_name)
                 return True
-            except:
-                print(f"Error creating/accessing collection: {e}")
-                return False
+            except Exception as get_error:
+                # Si falla con error '_type', la colección está corrupta, eliminarla
+                if "'_type'" in str(get_error) or "_type" in str(get_error):
+                    print(f"Collection '{collection_name}' appears corrupted, attempting to delete...")
+                    try:
+                        self.client.delete_collection(name=collection_name)
+                        print(f"Deleted corrupted collection '{collection_name}'")
+                    except Exception as delete_error:
+                        print(f"Could not delete collection (may not exist): {delete_error}")
+                
+                # Crear nueva colección con metadata válido (no vacío)
+                try:
+                    collection = self.client.create_collection(
+                        name=collection_name,
+                        metadata={"description": "Document embeddings collection"}
+                    )
+                    print(f"Created collection '{collection_name}'")
+                    return True
+                except Exception as create_error:
+                    # Si ya existe, intentar obtenerla de nuevo
+                    if "already exists" in str(create_error).lower():
+                        try:
+                            collection = self.client.get_collection(name=collection_name)
+                            return True
+                        except:
+                            return False
+                    else:
+                        print(f"Error creating collection: {create_error}")
+                        return False
+        except Exception as e:
+            print(f"Error creating/accessing collection: {e}")
+            return False
 
     async def upsert_chunks(
         self, collection_name: str, chunks: List[DocumentChunk]
     ) -> bool:
         try:
             # Intentar obtener la colección existente primero
+            collection = None
             try:
                 collection = self.client.get_collection(name=collection_name)
-            except:
-                # Si no existe, crearla
-                collection = self.client.get_or_create_collection(
-                    name=collection_name,
-                    metadata={"hnsw:space": "cosine"}
-                )
+            except Exception as get_error:
+                # Si falla con error '_type', la colección está corrupta, eliminarla y recrearla
+                if "'_type'" in str(get_error) or "_type" in str(get_error):
+                    print(f"Collection '{collection_name}' appears corrupted, attempting to delete and recreate...")
+                    try:
+                        self.client.delete_collection(name=collection_name)
+                        print(f"Deleted corrupted collection '{collection_name}'")
+                    except Exception as delete_error:
+                        print(f"Could not delete collection (may not exist): {delete_error}")
+                
+                # Crear nueva colección con metadata válido (no vacío)
+                try:
+                    collection = self.client.create_collection(
+                        name=collection_name,
+                        metadata={"description": "Document embeddings collection"}
+                    )
+                    print(f"Created new collection '{collection_name}'")
+                except Exception as create_error:
+                    # Si ya existe, intentar obtenerla de nuevo
+                    if "already exists" in str(create_error).lower():
+                        try:
+                            collection = self.client.get_collection(name=collection_name)
+                        except:
+                            # Último recurso: usar get_or_create sin metadata problemático
+                            collection = self.client.get_or_create_collection(
+                                name=collection_name,
+                                metadata={"description": "Document embeddings collection"}
+                            )
+                    else:
+                        print(f"Error creating collection: {create_error}")
+                        raise Exception(f"Could not access or create collection: {create_error}")
             
             ids = []
             embeddings = []
@@ -61,11 +108,17 @@ class ChromaVectorRepository(IVectorRepository):
                 ids.append(chunk.id)
                 embeddings.append(chunk.embedding)
                 documents.append(chunk.content)
-                metadatas.append({
-                    "document_id": chunk.document_id,
+                # Asegurar que los metadatos sean serializables (solo strings, números, bools)
+                clean_metadata = {
+                    "document_id": str(chunk.document_id),
                     "chunk_index": str(chunk.chunk_index),
-                    **chunk.metadata,
-                })
+                }
+                # Agregar metadata adicional solo si es serializable
+                for k, v in chunk.metadata.items():
+                    if isinstance(v, (str, int, float, bool)) or v is None:
+                        clean_metadata[k] = str(v) if v is not None else ""
+                
+                metadatas.append(clean_metadata)
             
             if ids:
                 collection.upsert(
@@ -74,10 +127,13 @@ class ChromaVectorRepository(IVectorRepository):
                     documents=documents,
                     metadatas=metadatas
                 )
+                print(f"Successfully upserted {len(ids)} chunks to collection '{collection_name}'")
             return True
         except Exception as e:
             print(f"Error upserting chunks: {e}")
-            return False
+            import traceback
+            traceback.print_exc()
+            raise  # Lanzar la excepción en lugar de retornar False
 
     async def search_similar(
         self,

@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import cors from 'cors';
 import { Database } from './infrastructure/config/database.js';
 import { initializeKafka, closeKafka } from './infrastructure/config/kafka.js';
 import { PostgresUserRepository } from './infrastructure/persistence/PostgresUserRepository.js';
@@ -15,6 +16,15 @@ import { errorHandler } from './presentation/middlewares/errorHandler.js';
 
 
 const app = express();
+
+// CORS configuration
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
 app.use(express.json());
 
 // Health check endpoint

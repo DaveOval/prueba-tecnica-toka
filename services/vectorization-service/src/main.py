@@ -372,8 +372,14 @@ async def upload_document(
 @app.get("/api/ai/documents")
 async def get_documents():
     try:
-        # Obtener todos los chunks de Chroma para agrupar por documento
-        collection = vector_repository.client.get_collection(name="documents")
+        # Intentar obtener la colección, si no existe retornar lista vacía
+        try:
+            collection = vector_repository.client.get_collection(name="documents")
+        except Exception as e:
+            # Si la colección no existe, retornar lista vacía
+            if "does not exist" in str(e) or "NotFoundError" in str(type(e).__name__):
+                return {"success": True, "data": []}
+            raise
         
         # Obtener todos los chunks (sin filtro)
         all_chunks = collection.get(limit=10000)  # Límite alto para obtener todos
@@ -441,14 +447,20 @@ async def delete_document(
     
     try:
         # Obtener información del documento antes de eliminarlo para auditoría
-        collection = vector_repository.client.get_collection(name="documents")
-        chunks_info = collection.get(
-            where={"document_id": document_id},
-            limit=1
-        )
         document_name = "unknown"
-        if chunks_info.get('metadatas') and len(chunks_info['metadatas']) > 0:
-            document_name = chunks_info['metadatas'][0].get("document_name", "unknown")
+        try:
+            collection = vector_repository.client.get_collection(name="documents")
+            chunks_info = collection.get(
+                where={"document_id": document_id},
+                limit=1
+            )
+            if chunks_info.get('metadatas') and len(chunks_info['metadatas']) > 0:
+                document_name = chunks_info['metadatas'][0].get("document_name", "unknown")
+        except Exception as e:
+            # Si la colección no existe, el documento tampoco existe
+            if "does not exist" in str(e) or "NotFoundError" in str(type(e).__name__):
+                raise HTTPException(status_code=404, detail="Document not found")
+            raise
         
         # Eliminar chunks del documento de Chroma
         await vector_repository.delete_document_chunks("documents", document_id)

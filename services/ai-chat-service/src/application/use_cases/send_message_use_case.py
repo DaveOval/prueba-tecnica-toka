@@ -33,33 +33,87 @@ class SendMessageUseCase:
         # 1. Buscar contexto relevante (RAG)
         context_chunks = []
         if use_rag:
-            query_embedding = await self.embedding_service.generate_embedding(
-                user_message
-            )
-            context_chunks = await self.vector_search.search_similar(
-                query_embedding, limit=3
-            )
+            print(f"[RAG] Generating embedding for query: {user_message[:100]}...")
+            try:
+                query_embedding = await self.embedding_service.generate_embedding(
+                    user_message
+                )
+                print(f"[RAG] Embedding generated, length: {len(query_embedding)}")
+            except Exception as e:
+                print(f"[RAG] Error generating embedding: {e}")
+                import traceback
+                traceback.print_exc()
+                raise
+            
+            try:
+                print(f"[RAG] Searching for similar chunks...")
+                context_chunks = await self.vector_search.search_similar(
+                    query_embedding, limit=5  # Aumentar a 5 chunks para mejor contexto
+                )
+                print(f"[RAG] Found {len(context_chunks)} context chunks")
+                if context_chunks:
+                    for idx, chunk in enumerate(context_chunks):
+                        print(f"[RAG] Chunk {idx+1}: score={chunk.get('score', 0):.3f}, doc={chunk.get('metadata', {}).get('document_name', 'unknown')}")
+                else:
+                    print(f"[RAG] WARNING: No context chunks found! RAG will not work properly.")
+            except Exception as e:
+                print(f"[RAG] Error searching similar: {e}")
+                import traceback
+                traceback.print_exc()
+                # Continuar sin contexto en lugar de fallar
+                context_chunks = []
 
-        # 2. Construir contexto para el LLM
+        # 2. Construir contexto para el LLM con mejor formato
         context_text = ""
         if context_chunks:
-            context_text = "\n\n".join(
-                [chunk.get("content", "") for chunk in context_chunks]
-            )
-            context_text = f"Contexto relevante:\n{context_text}\n\n"
+            # Formatear contexto con información de documentos
+            context_parts = []
+            for idx, chunk in enumerate(context_chunks, 1):
+                doc_name = chunk.get("metadata", {}).get("document_name", "Documento desconocido")
+                content = chunk.get("content", "")
+                score = chunk.get("score", 0)
+                context_parts.append(
+                    f"[Fuente {idx} - {doc_name} (Relevancia: {score:.2%})]:\n{content}"
+                )
+            
+            context_text = "\n\n".join(context_parts)
+            context_text = f"""INFORMACIÓN RELEVANTE DE LOS DOCUMENTOS:
+
+{context_text}
+
+INSTRUCCIONES:
+- Responde la pregunta del usuario basándote ÚNICAMENTE en la información proporcionada arriba.
+- Si la información no está en los documentos, di claramente que no tienes esa información en los documentos disponibles.
+- Cita las fuentes cuando uses información específica de los documentos (ej: "Según el documento [nombre del documento]...").
+- Sé preciso y conciso en tu respuesta.
+- Si la pregunta requiere información que no está en los documentos, indica claramente que no tienes esa información.
+
+"""
+        else:
+            # Si no hay contexto, informar al LLM
+            print(f"[RAG] WARNING: No context chunks found. RAG will not be used.")
+            context_text = """IMPORTANTE: No se encontró información relevante en los documentos vectorizados del sistema para responder esta consulta.
+
+INSTRUCCIONES:
+- Debes indicar claramente al usuario que no tienes información sobre esto en los documentos disponibles.
+- Puedes ofrecer información general si es apropiado, pero siempre aclara que no proviene de los documentos del sistema.
+- Ejemplo de respuesta: "No tengo información sobre [tema] en los documentos disponibles en el sistema. Sin embargo, puedo proporcionarte información general..."
+"""
 
         # 3. Preparar mensajes para el LLM
         messages = []
-        if self.system_prompt:
-            messages.append({"role": "system", "content": self.system_prompt})
-
+        
+        # System prompt base
+        base_system_prompt = self.system_prompt or "Eres un asistente útil que responde preguntas basándote en el contexto proporcionado."
+        
+        # Si hay contexto RAG, agregarlo al system prompt
         if context_text:
-            messages.append(
-                {
-                    "role": "system",
-                    "content": f"{context_text}Responde basándote en el contexto proporcionado.",
-                }
-            )
+            system_prompt_with_context = f"""{base_system_prompt}
+
+{context_text}"""
+            messages.append({"role": "system", "content": system_prompt_with_context})
+        else:
+            messages.append({"role": "system", "content": base_system_prompt})
 
         messages.append({"role": "user", "content": user_message})
 

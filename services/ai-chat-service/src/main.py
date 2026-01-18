@@ -92,6 +92,50 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/api/ai/rag/status")
+async def rag_status():
+    """Endpoint de diagnóstico para verificar el estado del RAG"""
+    try:
+        # Intentar obtener la colección
+        collection = vector_search.client.get_collection(name=vector_search.collection_name)
+        count = collection.count()
+        
+        # Intentar una búsqueda de prueba
+        test_embedding = [0.0] * 1536  # Dummy embedding para prueba
+        test_results = collection.query(
+            query_embeddings=[test_embedding],
+            n_results=1,
+        )
+        
+        return {
+            "success": True,
+            "data": {
+                "chroma_connected": True,
+                "collection_name": vector_search.collection_name,
+                "document_count": count,
+                "chroma_host": os.getenv("CHROMA_HOST", "localhost"),
+                "chroma_port": os.getenv("CHROMA_PORT", "8000"),
+                "embedding_model": os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
+                "has_documents": count > 0,
+                "test_query_works": True,
+            }
+        }
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        return {
+            "success": False,
+            "error": str(e),
+            "error_details": error_details,
+            "data": {
+                "chroma_connected": False,
+                "collection_name": vector_search.collection_name,
+                "document_count": 0,
+                "has_documents": False,
+            }
+        }
+
+
 @app.post("/api/ai/chat")
 async def chat(
     request: ChatRequest,

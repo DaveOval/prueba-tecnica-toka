@@ -11,11 +11,18 @@ export interface ChatMessage {
         output: number;
     };
     latency?: number; // en milisegundos
+    sources?: Array<{
+        documentId: string;
+        documentName: string;
+        relevance: number;
+        excerpt: string;
+    }>;
 }
 
 export interface ChatRequest {
     message: string;
     conversationId?: string;
+    promptTemplateId?: string;
     context?: {
         userId?: string;
         entityType?: string;

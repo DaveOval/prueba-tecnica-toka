@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { aiService } from '../shared/service/aiService';
-import type { ChatMessage, ChatRequest } from '../shared/service/aiService';
+import type { ChatMessage, ChatRequest, PromptTemplate } from '../shared/service/aiService';
 import { useAuth } from '../shared/hooks/useAuth';
 import { AINavigation } from '../shared/components/AINavigation';
 
@@ -11,6 +11,9 @@ export default function AIPage() {
     const [loading, setLoading] = useState(false);
     const [conversationId, setConversationId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [prompts, setPrompts] = useState<PromptTemplate[]>([]);
+    const [selectedPromptId, setSelectedPromptId] = useState<string | null>(null);
+    const [loadingPrompts, setLoadingPrompts] = useState(true);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -20,6 +23,24 @@ export default function AIPage() {
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
+
+    useEffect(() => {
+        // Cargar prompts disponibles
+        const fetchPrompts = async () => {
+            try {
+                setLoadingPrompts(true);
+                const response = await aiService.getPromptTemplates();
+                if (response.success) {
+                    setPrompts(response.data);
+                }
+            } catch (error) {
+                console.error('Error fetching prompts:', error);
+            } finally {
+                setLoadingPrompts(false);
+            }
+        };
+        fetchPrompts();
+    }, []);
 
     const handleSendMessage = async () => {
         if (!inputMessage.trim() || loading) return;
@@ -40,6 +61,7 @@ export default function AIPage() {
             const request: ChatRequest = {
                 message: inputMessage,
                 conversationId: conversationId || undefined,
+                promptTemplateId: selectedPromptId || undefined,
                 context: {
                     userId: user?.id,
                 },
@@ -54,6 +76,7 @@ export default function AIPage() {
                 timestamp: new Date(),
                 tokens: response.data.tokens,
                 latency: response.data.latency,
+                sources: response.data.sources,
             };
 
             setMessages((prev) => [...prev, assistantMessage]);
@@ -84,7 +107,33 @@ export default function AIPage() {
 
             <AINavigation />
 
-            <div className="flex flex-col h-[calc(100vh-300px)]">
+            {/* Selector de Prompt */}
+            <div className="flex items-center gap-3">
+                <label className="text-sm font-medium text-slate-300">Prompt Template:</label>
+                <select
+                    value={selectedPromptId || ''}
+                    onChange={(e) => setSelectedPromptId(e.target.value || null)}
+                    className="flex-1 max-w-xs px-3 py-2 border border-slate-700 bg-slate-800 rounded-lg text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    disabled={loadingPrompts}
+                >
+                    <option value="">Default (Sin template)</option>
+                    {prompts.map((prompt) => (
+                        <option key={prompt.id} value={prompt.id}>
+                            {prompt.name}
+                        </option>
+                    ))}
+                </select>
+                {selectedPromptId && (
+                    <button
+                        onClick={() => setSelectedPromptId(null)}
+                        className="px-3 py-2 text-sm text-slate-400 hover:text-slate-200 transition"
+                    >
+                        Limpiar
+                    </button>
+                )}
+            </div>
+
+            <div className="flex flex-col h-[calc(100vh-350px)]">
 
             {/* Área de mensajes */}
             <div className="flex-1 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900/40 p-4 space-y-4 mb-4">
@@ -116,6 +165,25 @@ export default function AIPage() {
                                 }`}
                             >
                                 <p className="whitespace-pre-wrap">{message.content}</p>
+                                
+                                {/* Mostrar fuentes si existen */}
+                                {message.sources && message.sources.length > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-slate-700">
+                                        <p className="text-xs font-semibold text-slate-400 mb-2">Fuentes:</p>
+                                        <div className="space-y-1">
+                                            {message.sources.map((source, idx) => (
+                                                <div key={idx} className="text-xs bg-slate-700/50 rounded p-2">
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <span className="font-medium text-slate-300">{source.documentName}</span>
+                                                        <span className="text-slate-400">Relevancia: {(source.relevance * 100).toFixed(1)}%</span>
+                                                    </div>
+                                                    <p className="text-slate-400 line-clamp-2">{source.excerpt}...</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                
                                 {message.tokens && (
                                     <div className="mt-2 text-xs opacity-70 flex gap-3">
                                         <span>Tokens: {message.tokens.input + message.tokens.output}</span>

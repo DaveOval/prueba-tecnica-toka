@@ -20,38 +20,56 @@ class ChromaVectorSearch(IVectorSearch):
         self, query_embedding: List[float], limit: int = 5
     ) -> List[Dict]:
         try:
-            collection = self.client.get_collection(name=self.collection_name)
+            print(f"[ChromaVectorSearch] Connecting to ChromaDB at {os.getenv('CHROMA_HOST', 'localhost')}:{os.getenv('CHROMA_PORT', '8000')}")
+            print(f"[ChromaVectorSearch] Collection name: {self.collection_name}")
             
-            # Chroma usa distancia, no score. Convertimos threshold a distancia
-            # Para cosine similarity: distance = 1 - similarity
-            # score_threshold de 0.7 = distance_threshold de 0.3
+            collection = self.client.get_collection(name=self.collection_name)
+            print(f"[ChromaVectorSearch] Collection retrieved successfully")
+            
+            # Verificar si la colección tiene datos
+            count_result = collection.count()
+            print(f"[ChromaVectorSearch] Collection has {count_result} items")
+            
+            if count_result == 0:
+                print(f"[ChromaVectorSearch] WARNING: Collection is empty! No documents to search.")
+                return []
+            
             score_threshold = 0.7
             distance_threshold = 1.0 - score_threshold
             
+            print(f"[ChromaVectorSearch] Querying with limit={limit}, embedding_dim={len(query_embedding)}")
             results = collection.query(
                 query_embeddings=[query_embedding],
                 n_results=limit,
             )
+            print(f"[ChromaVectorSearch] Query completed. Results structure: {list(results.keys())}")
             
             # Chroma devuelve resultados en formato diferente
             output = []
             if results.get('ids') and len(results['ids'][0]) > 0:
+                print(f"[ChromaVectorSearch] Processing {len(results['ids'][0])} results")
                 for i in range(len(results['ids'][0])):
                     # Chroma devuelve distances, las convertimos a scores
                     distance = results['distances'][0][i] if results.get('distances') and len(results['distances'][0]) > i else 0.0
-                    score = 1.0 - distance  # Convertir distancia a similitud
+                
+                    score = 1.0 / (1.0 + distance)
                     
-                    # Usar un threshold muy bajo para obtener resultados (0.05 en lugar de 0.7)
-                    # Los scores pueden ser bajos pero aún relevantes
-                    if score >= 0.05:  # Threshold muy permisivo para obtener resultados
+                    print(f"[ChromaVectorSearch] Result {i+1}: distance={distance:.4f}, score={score:.4f}")
+                    
+                    if score >= 0.01:
                         metadata_dict = {}
                         if results.get('metadatas') and len(results['metadatas'][0]) > i:
                             metadata_dict = results['metadatas'][0][i] if isinstance(results['metadatas'][0][i], dict) else {}
                         
+                        content = results['documents'][0][i] if results.get('documents') and len(results['documents'][0]) > i else ""
+                        doc_name = metadata_dict.get("document_name", "unknown") if metadata_dict else "unknown"
+                        
+                        print(f"[ChromaVectorSearch] Adding chunk {i+1}: doc={doc_name}, content_length={len(content)}")
+                        
                         output.append({
                             "id": results['ids'][0][i],
                             "score": score,
-                            "content": results['documents'][0][i] if results.get('documents') and len(results['documents'][0]) > i else "",
+                            "content": content,
                             "document_id": metadata_dict.get("document_id") if metadata_dict else None,
                             "chunk_index": int(metadata_dict.get("chunk_index", 0)) if metadata_dict else 0,
                             "metadata": {
@@ -60,9 +78,15 @@ class ChromaVectorSearch(IVectorSearch):
                                 if k not in ["document_id", "chunk_index"]
                             },
                         })
+                    else:
+                        print(f"[ChromaVectorSearch] Result {i+1} filtered out (score {score:.4f} < 0.05)")
+            else:
+                print(f"[ChromaVectorSearch] No results returned from query")
             
-            print(f"Found {len(output)} similar chunks (threshold: 0.5)")
+            print(f"[ChromaVectorSearch] Returning {len(output)} similar chunks")
             return output
         except Exception as e:
-            print(f"Error searching similar: {e}")
+            print(f"[ChromaVectorSearch] ERROR searching similar: {e}")
+            import traceback
+            traceback.print_exc()
             return []

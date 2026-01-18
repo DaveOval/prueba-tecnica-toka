@@ -83,6 +83,20 @@ export function LayoutWithNavbar() {
                                 </>
                             )}
 
+                            <NavLink
+                                to={routes.ai}
+                                className={({ isActive }) =>
+                                    classNames(
+                                        "rounded-md px-3 py-1.5 transition",
+                                        isActive
+                                            ? "bg-slate-800 text-white"
+                                            : "text-slate-300 hover:bg-slate-900 hover:text-white"
+                                    )
+                                }
+                            >
+                                IA
+                            </NavLink>
+
                             {isAuthenticated && (
                                 <div className="flex items-center gap-3 ml-4 pl-4 border-l border-slate-700">
                                     <span className="text-slate-400 text-xs">

@@ -6,6 +6,10 @@ import SigninPage from '../../pages/SiginPage';
 import UsersPage from '../../pages/UsersPage';
 import ProfilePage from '../../pages/ProfilePage';
 import AuditLogsPage from '../../pages/AuditLogsPage';
+import AIPage from '../../pages/AIPage';
+import AIDocumentsPage from '../../pages/AIDocumentsPage';
+import AIPromptsPage from '../../pages/AIPromptsPage';
+import AIMetricsPage from '../../pages/AIMetricsPage';
 import { ProtectedRoute } from './ProtectedRoute';
 
 export const routes = {
@@ -13,6 +17,10 @@ export const routes = {
     users: '/users',
     profile: '/profile',
     auditLogs: '/audit-logs',
+    ai: '/ai',
+    aiDocuments: '/ai/documents',
+    aiPrompts: '/ai/prompts',
+    aiMetrics: '/ai/metrics',
     notFound: '*',
     login: '/login',
     signin: '/signin',
@@ -55,6 +63,38 @@ export const protectedRoutes = [
         element: (
             <ProtectedRoute>
                 <AuditLogsPage />
+            </ProtectedRoute>
+        ) 
+    },
+    { 
+        path: routes.ai, 
+        element: (
+            <ProtectedRoute>
+                <AIPage />
+            </ProtectedRoute>
+        ) 
+    },
+    { 
+        path: routes.aiDocuments, 
+        element: (
+            <ProtectedRoute>
+                <AIDocumentsPage />
+            </ProtectedRoute>
+        ) 
+    },
+    { 
+        path: routes.aiPrompts, 
+        element: (
+            <ProtectedRoute>
+                <AIPromptsPage />
+            </ProtectedRoute>
+        ) 
+    },
+    { 
+        path: routes.aiMetrics, 
+        element: (
+            <ProtectedRoute>
+                <AIMetricsPage />
             </ProtectedRoute>
         ) 
     },

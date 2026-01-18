@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 from src.infrastructure.services.openai_llm_service import OpenAILLMService
 from src.infrastructure.services.openai_embedding_service import OpenAIEmbeddingService
-from src.infrastructure.vector_db.qdrant_vector_search import QdrantVectorSearch
+from src.infrastructure.vector_db.chroma_vector_search import ChromaVectorSearch
 from src.application.use_cases.send_message_use_case import SendMessageUseCase
 
 load_dotenv()
@@ -26,7 +26,7 @@ app.add_middleware(
 # Dependencies
 llm_service = OpenAILLMService()
 embedding_service = OpenAIEmbeddingService()
-vector_search = QdrantVectorSearch()
+vector_search = ChromaVectorSearch()
 
 # Request models
 class ChatRequest(BaseModel):

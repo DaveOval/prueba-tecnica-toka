@@ -10,7 +10,7 @@ from src.infrastructure.messaging.kafka_event_publisher import KafkaEventPublish
 from src.infrastructure.messaging.kafka_event_consumer import KafkaEventConsumer
 from src.infrastructure.services.openai_embedding_service import OpenAIEmbeddingService
 from src.infrastructure.services.document_processor import DocumentProcessor
-from src.infrastructure.vector_db.qdrant_vector_repository import QdrantVectorRepository
+from src.infrastructure.vector_db.chroma_vector_repository import ChromaVectorRepository
 from src.application.use_cases.upload_document_use_case import UploadDocumentUseCase
 from src.application.use_cases.process_document_use_case import ProcessDocumentUseCase
 
@@ -35,7 +35,7 @@ event_publisher = KafkaEventPublisher()
 event_consumer = KafkaEventConsumer("vectorization-service-group")
 embedding_service = OpenAIEmbeddingService()
 document_processor = DocumentProcessor()
-vector_repository = QdrantVectorRepository()
+vector_repository = ChromaVectorRepository()
 
 # Inicializar colección
 @app.on_event("startup")

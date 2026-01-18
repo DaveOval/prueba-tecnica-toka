@@ -22,6 +22,9 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 2181 || exit 1"]
       interval: 10s
@@ -46,6 +49,9 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - kafka_data:/var/lib/kafka/data
     healthcheck:
       test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1"]
       interval: 10s
@@ -83,18 +89,21 @@ services:
       retries: 5
       start_period: 10s
 
-  qdrant:
-    image: qdrant/qdrant:latest
+  chroma:
+    image: chromadb/chroma:latest
     ports:
-      - "6333:6333"
-      - "6334:6334"
+      - "8000:8000"
     volumes:
-      - qdrant_data:/qdrant/storage
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      test: ["CMD", "bash", "-c", "timeout 2 bash -c '</dev/tcp/127.0.0.1/8000'"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
   auth-service:
     build:
@@ -183,9 +192,9 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/vectorization_db
       KAFKA_BROKER: kafka:9093
-      QDRANT_HOST: qdrant
-      QDRANT_PORT: 6333
-      QDRANT_COLLECTION_NAME: documents
+      CHROMA_HOST: chroma
+      CHROMA_PORT: 8000
+      CHROMA_COLLECTION_NAME: documents
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-your-super-secret-access-key-change-in-production}
@@ -200,7 +209,7 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-      qdrant:
+      chroma:
         condition: service_healthy
     volumes:
       - ./services/vectorization-service/src:/app/src
@@ -214,9 +223,9 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/ai_chat_db
       KAFKA_BROKER: kafka:9093
-      QDRANT_HOST: qdrant
-      QDRANT_PORT: 6333
-      QDRANT_COLLECTION_NAME: documents
+      CHROMA_HOST: chroma
+      CHROMA_PORT: 8000
+      CHROMA_COLLECTION_NAME: documents
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
@@ -231,7 +240,7 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-      qdrant:
+      chroma:
         condition: service_healthy
       vectorization-service:
         condition: service_started
@@ -280,5 +289,8 @@ volumes:
   postgres_data:
   redis_data:
   mongodb_data:
-  qdrant_data:
+  chroma_data:
   vectorization_uploads:
+  zookeeper_data:
+  zookeeper_logs:
+  kafka_data:

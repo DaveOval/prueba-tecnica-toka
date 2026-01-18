@@ -1,0 +1,16 @@
+[run]
+omit = 
+    */main.py
+    */kafka_event_publisher.py
+    */__init__.py
+    */__pycache__/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstractmethod

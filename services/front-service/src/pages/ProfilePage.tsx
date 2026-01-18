@@ -156,6 +156,13 @@ export default function ProfilePage() {
                             </p>
                         </div>
                     )}
+                    {user?.role !== 'admin' && (
+                        <div className="border-t border-slate-700 pt-6">
+                            <p className="text-sm text-yellow-400">
+                                <span className="font-bold">Atención:</span> El administrador puede editar tu perfil desde la página de gestión de usuarios.
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
         </section>

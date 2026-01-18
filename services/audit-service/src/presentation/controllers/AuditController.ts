@@ -47,6 +47,9 @@ export class AuditController {
             if (req.query.entityId) {
                 query.entityId = req.query.entityId as string;
             }
+            if (req.query.action) {
+                query.action = req.query.action as string;
+            }
             if (req.query.limit) {
                 query.limit = parseInt(req.query.limit as string, 10);
             }

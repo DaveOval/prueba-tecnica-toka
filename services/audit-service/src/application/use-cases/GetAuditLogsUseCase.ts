@@ -10,22 +10,15 @@ export class GetAuditLogsUseCase {
         const limit = Math.min(query.limit ?? 100, 1000);
         const offset = query.offset ?? 0;
 
-        let logs;
-        if (query.userId) {
-            logs = await this.auditLogRepository.findByUserId(query.userId, limit, offset);
-        } else if (query.entityType) {
-            logs = await this.auditLogRepository.findByEntityType(query.entityType, limit, offset);
-        } else if (query.entityId) {
-            logs = await this.auditLogRepository.findByEntityId(query.entityId, limit, offset);
-        } else {
-            logs = await this.auditLogRepository.findAll(limit, offset);
-        }
+        const filters: { userId?: string; entityType?: string; entityId?: string; action?: string } = {};
+        if (query.userId) filters.userId = query.userId;
+        if (query.entityType) filters.entityType = query.entityType;
+        if (query.entityId) filters.entityId = query.entityId;
+        if (query.action) filters.action = query.action;
 
-        const total = await this.auditLogRepository.count({
-            userId: query.userId,
-            entityType: query.entityType,
-            entityId: query.entityId,
-        });
+        const logs = await this.auditLogRepository.findWithFilters(filters, limit, offset);
+
+        const total = await this.auditLogRepository.count(filters);
 
         return {
             logs: logs.map(log => ({

@@ -99,11 +99,28 @@ export class MongoAuditLogRepository implements IAuditLogRepository {
         return docs.map(doc => this.toDomain(doc));
     }
 
-    async count(filters?: { userId?: string; entityType?: string; entityId?: string }): Promise<number> {
+    async findWithFilters(filters: { userId?: string; entityType?: string; entityId?: string; action?: string }, limit: number = 100, offset: number = 0): Promise<AuditLog[]> {
+        const query: any = {};
+        if (filters.userId) query.userId = filters.userId;
+        if (filters.entityType) query.entityType = filters.entityType;
+        if (filters.entityId) query.entityId = filters.entityId;
+        if (filters.action) query.action = filters.action;
+
+        const docs = await AuditLogModel.find(query)
+            .sort({ timestamp: -1 })
+            .limit(limit)
+            .skip(offset)
+            .exec();
+
+        return docs.map(doc => this.toDomain(doc));
+    }
+
+    async count(filters?: { userId?: string; entityType?: string; entityId?: string; action?: string }): Promise<number> {
         const query: any = {};
         if (filters?.userId) query.userId = filters.userId;
         if (filters?.entityType) query.entityType = filters.entityType;
         if (filters?.entityId) query.entityId = filters.entityId;
+        if (filters?.action) query.action = filters.action;
 
         return AuditLogModel.countDocuments(query).exec();
     }

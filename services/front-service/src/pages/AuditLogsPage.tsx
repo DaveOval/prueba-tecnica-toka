@@ -123,12 +123,8 @@ export default function AuditLogsPage() {
                             Acción
                         </label>
                         <select
-                            value={filters.entityId || ''}
-                            onChange={(e) => {
-                                // Nota: El backend no tiene filtro directo por acción, pero podemos usar entityId como workaround
-                                // O mejor, agregar un filtro de acción en el backend
-                                handleFilterChange('entityId', e.target.value || undefined);
-                            }}
+                            value={filters.action || ''}
+                            onChange={(e) => handleFilterChange('action', e.target.value || undefined)}
                             className="w-full px-3 py-2 bg-slate-700 text-slate-200 rounded-md border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                             <option value="">Todas</option>
@@ -137,6 +133,8 @@ export default function AuditLogsPage() {
                             <option value="DELETE">Eliminar</option>
                             <option value="LOGIN">Iniciar Sesión</option>
                             <option value="REGISTER">Registrar</option>
+                            <option value="ACTIVATE">Activar</option>
+                            <option value="DEACTIVATE">Desactivar</option>
                         </select>
                     </div>
                     <div>

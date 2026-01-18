@@ -16,6 +16,7 @@ export interface GetAuditLogsParams {
     userId?: string;
     entityType?: string;
     entityId?: string;
+    action?: string;
     limit?: number;
     offset?: number;
 }
@@ -33,6 +34,7 @@ export const auditService = {
         if (params.userId) queryParams.append('userId', params.userId);
         if (params.entityType) queryParams.append('entityType', params.entityType);
         if (params.entityId) queryParams.append('entityId', params.entityId);
+        if (params.action) queryParams.append('action', params.action);
         if (params.limit) queryParams.append('limit', params.limit.toString());
         if (params.offset) queryParams.append('offset', params.offset.toString());
 

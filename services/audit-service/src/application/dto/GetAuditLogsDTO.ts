@@ -4,6 +4,7 @@ export interface GetAuditLogsQueryDTO {
     userId?: string;
     entityType?: string;
     entityId?: string;
+    action?: string;
     limit?: number;
     offset?: number;
 }

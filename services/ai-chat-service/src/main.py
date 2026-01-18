@@ -69,6 +69,10 @@ class ChatRequest(BaseModel):
     conversationId: Optional[str] = None
     context: Optional[dict] = None
     promptTemplateId: Optional[str] = None
+    
+    class Config:
+        # Permitir tanto camelCase como snake_case
+        allow_population_by_field_name = True
 
 
 class CreatePromptRequest(BaseModel):
@@ -147,17 +151,43 @@ async def chat(
         "DEFAULT_SYSTEM_PROMPT",
         "Eres un asistente útil. Responde preguntas basándote en el contexto proporcionado.",
     )
+    user_prompt_template = None
     
     if request.promptTemplateId:
-        prompt_template = await prompt_repository.get_by_id(request.promptTemplateId)
-        if prompt_template:
-            system_prompt = prompt_template.system_prompt
+        print(f"[Chat] Using prompt template ID: {request.promptTemplateId}")
+        try:
+            prompt_template = await prompt_repository.get_by_id(request.promptTemplateId)
+            if prompt_template:
+                system_prompt = prompt_template.system_prompt
+                user_prompt_template = prompt_template.user_prompt_template
+                print(f"[Chat] ✓ Loaded prompt template: {prompt_template.name}")
+                print(f"[Chat] ✓ System prompt length: {len(system_prompt)} chars")
+                if user_prompt_template:
+                    print(f"[Chat] ✓ User prompt template length: {len(user_prompt_template)} chars")
+                else:
+                    print(f"[Chat] No user prompt template in this template")
+            else:
+                print(f"[Chat] ✗ WARNING: Prompt template {request.promptTemplateId} not found in Redis")
+                print(f"[Chat] Available prompts in Redis:")
+                try:
+                    all_prompts = await prompt_repository.get_all()
+                    for p in all_prompts:
+                        print(f"[Chat]   - {p.id}: {p.name}")
+                except Exception as e:
+                    print(f"[Chat] Error listing prompts: {e}")
+        except Exception as e:
+            print(f"[Chat] ✗ ERROR loading prompt template: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        print(f"[Chat] No prompt template ID provided, using default system prompt")
 
     use_case = SendMessageUseCase(
         llm_service=llm_service,
         vector_search=vector_search,
         embedding_service=embedding_service,
         system_prompt=system_prompt,
+        user_prompt_template=user_prompt_template,
     )
 
     try:

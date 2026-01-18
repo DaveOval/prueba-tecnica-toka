@@ -56,7 +56,7 @@ class ChromaVectorSearch(IVectorSearch):
                     
                     print(f"[ChromaVectorSearch] Result {i+1}: distance={distance:.4f}, score={score:.4f}")
                     
-                    if score >= 0.01:
+                    if score >= 0.5:
                         metadata_dict = {}
                         if results.get('metadatas') and len(results['metadatas'][0]) > i:
                             metadata_dict = results['metadatas'][0][i] if isinstance(results['metadatas'][0][i], dict) else {}

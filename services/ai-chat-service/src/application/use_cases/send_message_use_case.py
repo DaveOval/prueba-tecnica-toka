@@ -15,11 +15,13 @@ class SendMessageUseCase:
         vector_search: IVectorSearch,
         embedding_service: IEmbeddingService,
         system_prompt: Optional[str] = None,
+        user_prompt_template: Optional[str] = None,
     ):
         self.llm_service = llm_service
         self.vector_search = vector_search
         self.embedding_service = embedding_service
         self.system_prompt = system_prompt
+        self.user_prompt_template = user_prompt_template
 
     async def execute(
         self,
@@ -33,35 +35,57 @@ class SendMessageUseCase:
         # 1. Buscar contexto relevante (RAG)
         context_chunks = []
         if use_rag:
-            print(f"[RAG] Generating embedding for query: {user_message[:100]}...")
-            try:
-                query_embedding = await self.embedding_service.generate_embedding(
-                    user_message
-                )
-                print(f"[RAG] Embedding generated, length: {len(query_embedding)}")
-            except Exception as e:
-                print(f"[RAG] Error generating embedding: {e}")
-                import traceback
-                traceback.print_exc()
-                raise
+            # Detectar consultas genéricas que no requieren búsqueda en documentos
+            generic_queries = [
+                "hola", "hi", "hello", "hey", "buenos días", "buenas tardes", "buenas noches",
+                "como estas", "como estás", "qué tal", "que tal", "cómo te llamas", "como te llamas",
+                "quien eres", "quién eres", "que eres", "qué eres", "ayuda", "help"
+            ]
             
-            try:
-                print(f"[RAG] Searching for similar chunks...")
-                context_chunks = await self.vector_search.search_similar(
-                    query_embedding, limit=5  # Aumentar a 5 chunks para mejor contexto
-                )
-                print(f"[RAG] Found {len(context_chunks)} context chunks")
-                if context_chunks:
-                    for idx, chunk in enumerate(context_chunks):
-                        print(f"[RAG] Chunk {idx+1}: score={chunk.get('score', 0):.3f}, doc={chunk.get('metadata', {}).get('document_name', 'unknown')}")
-                else:
-                    print(f"[RAG] WARNING: No context chunks found! RAG will not work properly.")
-            except Exception as e:
-                print(f"[RAG] Error searching similar: {e}")
-                import traceback
-                traceback.print_exc()
-                # Continuar sin contexto en lugar de fallar
+            message_lower = user_message.lower().strip()
+            message_words = message_lower.split()
+            
+            # Si el mensaje es muy corto (menos de 3 palabras) y contiene solo saludos genéricos, no buscar
+            is_generic = (
+                len(message_words) <= 3 and 
+                any(generic in message_lower for generic in generic_queries)
+            ) or (
+                len(message_words) <= 2  # Mensajes muy cortos probablemente son saludos
+            )
+            
+            if is_generic:
+                print(f"[RAG] Generic query detected, skipping document search: {user_message[:50]}")
                 context_chunks = []
+            else:
+                print(f"[RAG] Generating embedding for query: {user_message[:100]}...")
+                try:
+                    query_embedding = await self.embedding_service.generate_embedding(
+                        user_message
+                    )
+                    print(f"[RAG] Embedding generated, length: {len(query_embedding)}")
+                except Exception as e:
+                    print(f"[RAG] Error generating embedding: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    raise
+                
+                try:
+                    print(f"[RAG] Searching for similar chunks...")
+                    context_chunks = await self.vector_search.search_similar(
+                        query_embedding, limit=5  # Aumentar a 5 chunks para mejor contexto
+                    )
+                    print(f"[RAG] Found {len(context_chunks)} context chunks")
+                    if context_chunks:
+                        for idx, chunk in enumerate(context_chunks):
+                            print(f"[RAG] Chunk {idx+1}: score={chunk.get('score', 0):.3f}, doc={chunk.get('metadata', {}).get('document_name', 'unknown')}")
+                    else:
+                        print(f"[RAG] WARNING: No context chunks found! RAG will not work properly.")
+                except Exception as e:
+                    print(f"[RAG] Error searching similar: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    # Continuar sin contexto en lugar de fallar
+                    context_chunks = []
 
         # 2. Construir contexto para el LLM con mejor formato
         context_text = ""
@@ -106,16 +130,32 @@ INSTRUCCIONES:
         # System prompt base
         base_system_prompt = self.system_prompt or "Eres un asistente útil que responde preguntas basándote en el contexto proporcionado."
         
+        print(f"[RAG] Using system prompt (length: {len(base_system_prompt)} chars)")
+        if self.user_prompt_template:
+            print(f"[RAG] Using user prompt template (length: {len(self.user_prompt_template)} chars)")
+        
         # Si hay contexto RAG, agregarlo al system prompt
         if context_text:
             system_prompt_with_context = f"""{base_system_prompt}
 
 {context_text}"""
             messages.append({"role": "system", "content": system_prompt_with_context})
+            print(f"[RAG] System prompt with RAG context (total length: {len(system_prompt_with_context)} chars)")
         else:
             messages.append({"role": "system", "content": base_system_prompt})
+            print(f"[RAG] System prompt without RAG context")
 
-        messages.append({"role": "user", "content": user_message})
+        # Aplicar user prompt template si existe
+        if self.user_prompt_template:
+            # Si hay un template, reemplazar {message} o usar el mensaje directamente
+            formatted_user_message = self.user_prompt_template.replace("{message}", user_message)
+            if formatted_user_message == self.user_prompt_template:
+                # Si no hay placeholder, concatenar
+                formatted_user_message = f"{self.user_prompt_template}\n\n{user_message}"
+            messages.append({"role": "user", "content": formatted_user_message})
+            print(f"[RAG] Using user prompt template (length: {len(formatted_user_message)} chars)")
+        else:
+            messages.append({"role": "user", "content": user_message})
 
         # 4. Generar respuesta del LLM
         response = await self.llm_service.generate_response(messages)
@@ -137,9 +177,10 @@ INSTRUCCIONES:
                     "documentId": chunk.get("document_id"),
                     "documentName": chunk.get("metadata", {}).get("document_name", ""),
                     "relevance": chunk.get("score", 0),
-                    "excerpt": chunk.get("content", "")[:200],
+                    "excerpt": chunk.get("content", "")[:150],  # Reducir excerpt a 150 caracteres
                 }
                 for chunk in context_chunks
+                if chunk.get("score", 0) >= 0.5  # Solo incluir fuentes con relevancia >= 50%
             ],
         }
 

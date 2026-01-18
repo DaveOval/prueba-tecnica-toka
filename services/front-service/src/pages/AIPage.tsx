@@ -58,14 +58,23 @@ export default function AIPage() {
         setError(null);
 
         try {
+            // Construir request, solo incluir promptTemplateId si tiene valor
             const request: ChatRequest = {
                 message: inputMessage,
-                conversationId: conversationId || undefined,
-                promptTemplateId: selectedPromptId || undefined,
+                ...(conversationId && { conversationId }),
+                ...(selectedPromptId && { promptTemplateId: selectedPromptId }),
                 context: {
                     userId: user?.id,
                 },
             };
+
+            console.log('[AIPage] Sending chat request:', {
+                messageLength: request.message.length,
+                promptTemplateId: request.promptTemplateId,
+                conversationId: request.conversationId,
+                selectedPromptId: selectedPromptId,
+                fullRequest: JSON.stringify(request, null, 2),
+            });
 
             const response = await aiService.sendMessage(request);
 
@@ -166,20 +175,22 @@ export default function AIPage() {
                             >
                                 <p className="whitespace-pre-wrap">{message.content}</p>
                                 
-                                {/* Mostrar fuentes si existen */}
+                                {/* Mostrar fuentes si existen y tienen relevancia suficiente */}
                                 {message.sources && message.sources.length > 0 && (
-                                    <div className="mt-3 pt-3 border-t border-slate-700">
-                                        <p className="text-xs font-semibold text-slate-400 mb-2">Fuentes:</p>
+                                    <div className="mt-2 pt-2 border-t border-slate-700">
+                                        <p className="text-[10px] font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">Fuentes:</p>
                                         <div className="space-y-1">
-                                            {message.sources.map((source, idx) => (
-                                                <div key={idx} className="text-xs bg-slate-700/50 rounded p-2">
-                                                    <div className="flex items-center justify-between mb-1">
-                                                        <span className="font-medium text-slate-300">{source.documentName}</span>
-                                                        <span className="text-slate-400">Relevancia: {(source.relevance * 100).toFixed(1)}%</span>
+                                            {message.sources
+                                                .filter((source) => source.relevance >= 0.5) // Solo mostrar fuentes con relevancia >= 50%
+                                                .map((source, idx) => (
+                                                    <div key={idx} className="text-[10px] bg-slate-700/30 rounded px-1.5 py-1">
+                                                        <div className="flex items-center justify-between mb-0.5">
+                                                            <span className="font-medium text-slate-400 truncate max-w-[60%]">{source.documentName}</span>
+                                                            <span className="text-slate-500 text-[9px] ml-2">{(source.relevance * 100).toFixed(0)}%</span>
+                                                        </div>
+                                                        <p className="text-slate-500 line-clamp-1 text-[9px]">{source.excerpt}</p>
                                                     </div>
-                                                    <p className="text-slate-400 line-clamp-2">{source.excerpt}...</p>
-                                                </div>
-                                            ))}
+                                                ))}
                                         </div>
                                     </div>
                                 )}

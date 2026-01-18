@@ -3,6 +3,7 @@ export enum EntityType {
     USER_PROFILE = 'USER_PROFILE',
     AUTH = 'AUTH',
     SYSTEM = 'SYSTEM',
+    DOCUMENT = 'DOCUMENT',
 }
 
 export class EntityTypeVO {

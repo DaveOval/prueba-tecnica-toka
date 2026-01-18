@@ -1,10 +1,11 @@
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 import os
 import uuid
 import aiofiles
 import glob
+from jose import jwt, JWTError
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -36,6 +37,34 @@ event_consumer = KafkaEventConsumer("vectorization-service-group")
 embedding_service = OpenAIEmbeddingService()
 document_processor = DocumentProcessor()
 vector_repository = ChromaVectorRepository()
+
+# Función de dependencia para obtener user_id del JWT
+async def get_user_id(authorization: Optional[str] = Header(None)) -> str:
+    """Extrae el user_id del token JWT del header Authorization"""
+    if not authorization or not authorization.startswith("Bearer "):
+        # Si no hay token, retornar un ID temporal (para desarrollo)
+        # En producción debería lanzar HTTPException(401)
+        return "temp-user-id"
+    
+    try:
+        token = authorization.split(" ")[1]
+        jwt_secret = os.getenv("JWT_ACCESS_SECRET", "access-secret")
+        
+        # Decodificar el token
+        decoded = jwt.decode(token, jwt_secret, algorithms=["HS256"])
+        user_id = decoded.get("userId")
+        
+        if not user_id:
+            return "temp-user-id"
+        
+        return user_id
+    except JWTError as e:
+        # Token inválido o expirado - en producción debería lanzar HTTPException(401)
+        print(f"Error decoding JWT: {e}")
+        return "temp-user-id"
+    except Exception as e:
+        print(f"Error decoding JWT: {e}")
+        return "temp-user-id"
 
 # Inicializar colección (lazy - se crea cuando se necesita)
 @app.on_event("startup")
@@ -99,6 +128,26 @@ async def handle_document_uploaded(message: dict):
             },
         )
         
+        # 6. Publicar evento de auditoría: Documento procesado/vectorizado
+        try:
+            await event_publisher.publish(
+                "audit.event",
+                {
+                    "userId": user_id,
+                    "action": "UPDATE",
+                    "entityType": "DOCUMENT",
+                    "entityId": document_id,
+                    "details": {
+                        "fileName": file_name,
+                        "chunks": len(document_chunks),
+                        "status": "completed",
+                        "message": "Document processed and vectorized successfully"
+                    },
+                },
+            )
+        except:
+            pass  # No crítico si falla
+        
         print(f"Document {document_id} processed successfully!")
         
     except Exception as e:
@@ -115,6 +164,25 @@ async def handle_document_uploaded(message: dict):
                 "error": str(e),
             },
         )
+        
+        # Publicar evento de auditoría: Error al procesar documento
+        try:
+            await event_publisher.publish(
+                "audit.event",
+                {
+                    "userId": user_id,
+                    "action": "UPDATE",
+                    "entityType": "DOCUMENT",
+                    "entityId": document_id,
+                    "details": {
+                        "fileName": file_name,
+                        "status": "failed",
+                        "error": str(e),
+                    },
+                },
+            )
+        except:
+            pass  # No crítico si falla
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -130,9 +198,8 @@ async def upload_document(
     file: UploadFile = File(...),
     name: Optional[str] = None,
     description: Optional[str] = None,
+    user_id: str = Depends(get_user_id),
 ):
-    # TODO: Validar autenticación JWT
-    user_id = "temp-user-id"  # Obtener del token JWT
     
     # Validar tipo de archivo (solo PDF)
     if not file.filename:
@@ -166,6 +233,26 @@ async def upload_document(
     
     async with aiofiles.open(file_path, "wb") as f:
         await f.write(content)
+    
+    # Publicar evento de auditoría: Documento subido
+    try:
+        await event_publisher.publish(
+            "audit.event",
+            {
+                "userId": user_id,
+                "action": "CREATE",
+                "entityType": "DOCUMENT",
+                "entityId": document_id,
+                "details": {
+                    "fileName": name or file.filename,
+                    "fileSize": file_size,
+                    "description": description,
+                    "status": "uploaded"
+                },
+            },
+        )
+    except:
+        pass  # No crítico si falla
     
     try:
         # Asegurar que la colección existe (lazy creation)
@@ -209,7 +296,7 @@ async def upload_document(
         if not upsert_result:
             raise HTTPException(status_code=500, detail="Failed to save document chunks to vector database")
         
-        # 5. Publicar evento (opcional)
+        # 5. Publicar evento de procesamiento (opcional)
         try:
             await event_publisher.publish(
                 "document.processed",
@@ -218,6 +305,26 @@ async def upload_document(
                     "userId": user_id,
                     "chunks": len(document_chunks),
                     "status": "completed",
+                },
+            )
+        except:
+            pass  # No crítico si falla
+        
+        # 6. Publicar evento de auditoría: Documento procesado/vectorizado
+        try:
+            await event_publisher.publish(
+                "audit.event",
+                {
+                    "userId": user_id,
+                    "action": "UPDATE",
+                    "entityType": "DOCUMENT",
+                    "entityId": document_id,
+                    "details": {
+                        "fileName": name or file.filename,
+                        "chunks": len(document_chunks),
+                        "status": "completed",
+                        "message": "Document processed and vectorized successfully"
+                    },
                 },
             )
         except:
@@ -240,6 +347,26 @@ async def upload_document(
         print(f"Error processing document: {e}")
         import traceback
         traceback.print_exc()
+        
+        # Publicar evento de auditoría: Error al procesar documento
+        try:
+            await event_publisher.publish(
+                "audit.event",
+                {
+                    "userId": user_id,
+                    "action": "UPDATE",
+                    "entityType": "DOCUMENT",
+                    "entityId": document_id,
+                    "details": {
+                        "fileName": name or file.filename if 'name' in locals() else file.filename if 'file' in locals() else "unknown",
+                        "status": "failed",
+                        "error": str(e),
+                    },
+                },
+            )
+        except:
+            pass  # No crítico si falla
+        
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/ai/documents")
@@ -307,18 +434,53 @@ async def get_documents():
         return {"success": True, "data": []}
 
 @app.delete("/api/ai/documents/{document_id}")
-async def delete_document(document_id: str):
+async def delete_document(
+    document_id: str,
+    user_id: str = Depends(get_user_id),
+):
+    
     try:
+        # Obtener información del documento antes de eliminarlo para auditoría
+        collection = vector_repository.client.get_collection(name="documents")
+        chunks_info = collection.get(
+            where={"document_id": document_id},
+            limit=1
+        )
+        document_name = "unknown"
+        if chunks_info.get('metadatas') and len(chunks_info['metadatas']) > 0:
+            document_name = chunks_info['metadatas'][0].get("document_name", "unknown")
+        
         # Eliminar chunks del documento de Chroma
         await vector_repository.delete_document_chunks("documents", document_id)
         
         # Publicar evento de eliminación
-        await event_publisher.publish(
-            "document.deleted",
-            {
-                "documentId": document_id,
-            },
-        )
+        try:
+            await event_publisher.publish(
+                "document.deleted",
+                {
+                    "documentId": document_id,
+                },
+            )
+        except:
+            pass  # No crítico si falla
+        
+        # Publicar evento de auditoría: Documento eliminado
+        try:
+            await event_publisher.publish(
+                "audit.event",
+                {
+                    "userId": user_id,
+                    "action": "DELETE",
+                    "entityType": "DOCUMENT",
+                    "entityId": document_id,
+                    "details": {
+                        "fileName": document_name,
+                        "status": "deleted"
+                    },
+                },
+            )
+        except:
+            pass  # No crítico si falla
         
         return {"success": True, "message": "Document deleted"}
     except Exception as e:

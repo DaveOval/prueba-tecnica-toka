@@ -4,6 +4,8 @@ from typing import Optional
 import os
 import uuid
 import aiofiles
+import glob
+from datetime import datetime
 from dotenv import load_dotenv
 
 from src.infrastructure.messaging.kafka_event_publisher import KafkaEventPublisher
@@ -242,8 +244,67 @@ async def upload_document(
 
 @app.get("/api/ai/documents")
 async def get_documents():
-    # TODO: Implementar
-    return {"success": True, "data": []}
+    try:
+        # Obtener todos los chunks de Chroma para agrupar por documento
+        collection = vector_repository.client.get_collection(name="documents")
+        
+        # Obtener todos los chunks (sin filtro)
+        all_chunks = collection.get(limit=10000)  # Límite alto para obtener todos
+        
+        # Agrupar por document_id
+        documents_dict = {}
+        
+        if all_chunks.get('ids') and len(all_chunks['ids']) > 0:
+            for i in range(len(all_chunks['ids'])):
+                metadata = all_chunks['metadatas'][i] if all_chunks.get('metadatas') and len(all_chunks['metadatas']) > i else {}
+                document_id = metadata.get("document_id")
+                
+                if not document_id:
+                    continue
+                
+                if document_id not in documents_dict:
+                    # Obtener información del archivo si existe
+                    file_path = os.path.join(upload_dir, f"{document_id}_*")
+                    matching_files = glob.glob(file_path)
+                    file_size = 0
+                    uploaded_at = None
+                    
+                    if matching_files:
+                        actual_file = matching_files[0]
+                        if os.path.exists(actual_file):
+                            file_size = os.path.getsize(actual_file)
+                            uploaded_at = os.path.getmtime(actual_file)
+                    
+                    documents_dict[document_id] = {
+                        "id": document_id,
+                        "name": metadata.get("document_name", "Sin nombre"),
+                        "description": metadata.get("description", ""),
+                        "chunks": 0,
+                        "status": "completed",
+                        "size": file_size,
+                        "uploadedAt": uploaded_at,
+                    }
+                
+                documents_dict[document_id]["chunks"] += 1
+        
+        # Convertir a lista y ordenar por fecha de subida (más recientes primero)
+        documents_list = list(documents_dict.values())
+        documents_list.sort(key=lambda x: x.get("uploadedAt", 0), reverse=True)
+        
+        # Convertir timestamps a ISO format
+        for doc in documents_list:
+            if doc.get("uploadedAt"):
+                doc["uploadedAt"] = datetime.fromtimestamp(doc["uploadedAt"]).isoformat()
+            else:
+                doc["uploadedAt"] = datetime.utcnow().isoformat()
+        
+        return {"success": True, "data": documents_list}
+    except Exception as e:
+        print(f"Error getting documents: {e}")
+        import traceback
+        traceback.print_exc()
+        # Si hay error, retornar lista vacía en lugar de fallar
+        return {"success": True, "data": []}
 
 @app.delete("/api/ai/documents/{document_id}")
 async def delete_document(document_id: str):

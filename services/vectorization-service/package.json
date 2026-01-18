@@ -1,0 +1,10 @@
+{
+  "name": "vectorization-service",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "pytest tests/ -v",
+    "test:coverage": "pytest tests/ --cov=src --cov-report=html --cov-report=term --cov-report=json",
+    "test:watch": "pytest-watch tests/",
+    "install": "pip install -r requirements.txt"
+  }
+}

@@ -52,6 +52,16 @@ export const authService = {
         return response.data;
     },
 
+    async deactivateUser(userId: string): Promise<{ success: boolean; message: string }> {
+        const response = await authApi.patch<{ success: boolean; message: string }>(`/deactivate/${userId}`);
+        return response.data;
+    },
+
+    async changeUserRole(userId: string, role: 'user' | 'admin'): Promise<{ success: boolean; message: string }> {
+        const response = await authApi.patch<{ success: boolean; message: string }>(`/change-role/${userId}`, { role });
+        return response.data;
+    },
+
     decodeToken(token: string): { userId: string; email: string; role: string } | null {
         try {
             const payload = JSON.parse(atob(token.split('.')[1]));

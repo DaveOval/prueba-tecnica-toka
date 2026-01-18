@@ -31,6 +31,41 @@ export class AuthDomainService {
         return user;
     }
 
+    async deactivateUser(userId: string): Promise<User> {
+        const user = await this.userRepository.findById(userId);
+        if (!user) {
+            throw new Error("User not found");
+        }
+
+        user.deactivate();
+        await this.userRepository.save(user);
+
+        return user;
+    }
+
+    async changeUserRole(userId: string, newRole: UserRole): Promise<User> {
+        const user = await this.userRepository.findById(userId);
+        if (!user) {
+            throw new Error("User not found");
+        }
+
+        // Crear un nuevo User con el rol actualizado
+        // El método save() actualizará el role en la base de datos
+        const updatedUser = User.reconstitute(
+            user.getId(),
+            user.getEmail().getValue(),
+            user.getPassword().getHashedValue(),
+            newRole === UserRole.ADMIN ? UserRole.ADMIN : UserRole.USER,
+            user.isActive(),
+            user.getCreatedAt(),
+            new Date(),
+        );
+
+        await this.userRepository.save(updatedUser);
+
+        return updatedUser;
+    }
+
     async authenticateUser(email: Email, plainPassword: string): Promise<User> {
         const user = await this.userRepository.findByEmail(email);
         if (!user) {

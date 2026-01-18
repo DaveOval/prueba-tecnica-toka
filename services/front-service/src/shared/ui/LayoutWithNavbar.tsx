@@ -20,7 +20,7 @@ export function LayoutWithNavbar() {
                 <Container>
                     <div className="flex h-14 items-center justify-between">
                         <Link to={routes.home} className="font-semibold tracking-tight">
-                            MyApp
+                            UserManager
                         </Link>
 
                         <nav className="flex items-center gap-3 text-sm">
@@ -38,20 +38,49 @@ export function LayoutWithNavbar() {
                                 Inicio
                             </NavLink>
 
+                            <NavLink
+                                to={routes.profile}
+                                className={({ isActive }) =>
+                                    classNames(
+                                        "rounded-md px-3 py-1.5 transition",
+                                        isActive
+                                            ? "bg-slate-800 text-white"
+                                            : "text-slate-300 hover:bg-slate-900 hover:text-white"
+                                    )
+                                }
+                            >
+                                Mi Perfil
+                            </NavLink>
+
                             {user?.role === 'admin' && (
-                                <NavLink
-                                    to={routes.users}
-                                    className={({ isActive }) =>
-                                        classNames(
-                                            "rounded-md px-3 py-1.5 transition",
-                                            isActive
-                                                ? "bg-slate-800 text-white"
-                                                : "text-slate-300 hover:bg-slate-900 hover:text-white"
-                                        )
-                                    }
-                                >
-                                    Usuarios
-                                </NavLink>
+                                <>
+                                    <NavLink
+                                        to={routes.users}
+                                        className={({ isActive }) =>
+                                            classNames(
+                                                "rounded-md px-3 py-1.5 transition",
+                                                isActive
+                                                    ? "bg-slate-800 text-white"
+                                                    : "text-slate-300 hover:bg-slate-900 hover:text-white"
+                                            )
+                                        }
+                                    >
+                                        Usuarios
+                                    </NavLink>
+                                    <NavLink
+                                        to={routes.auditLogs}
+                                        className={({ isActive }) =>
+                                            classNames(
+                                                "rounded-md px-3 py-1.5 transition",
+                                                isActive
+                                                    ? "bg-slate-800 text-white"
+                                                    : "text-slate-300 hover:bg-slate-900 hover:text-white"
+                                            )
+                                        }
+                                    >
+                                        Auditoría
+                                    </NavLink>
+                                </>
                             )}
 
                             {isAuthenticated && (
@@ -82,10 +111,6 @@ export function LayoutWithNavbar() {
                     <Outlet />
                 </Container>
             </main>
-
-            <footer className="border-t border-slate-800/70 py-6 text-center text-xs text-slate-400">
-                <Container>© {new Date().getFullYear()} MyApp</Container>
-            </footer>
         </div>
     );
 }

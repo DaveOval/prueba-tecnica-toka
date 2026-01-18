@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { userApi } from '../shared/api/apiClient';
 import { authService } from '../shared/service/authService';
+import { userService, type UserProfile } from '../shared/service/userService';
 import { useAuth } from '../shared/hooks/useAuth';
+import { EditUserModal } from '../shared/components/EditUserModal';
 import { AxiosError } from 'axios';
 
 interface UserProfile {
@@ -31,6 +33,10 @@ export default function UsersPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [activating, setActivating] = useState<string | null>(null);
+    const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+    const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+    const [deactivatingUserId, setDeactivatingUserId] = useState<string | null>(null);
+    const [changingRoleUserId, setChangingRoleUserId] = useState<string | null>(null);
 
     useEffect(() => {
         if (user?.role === 'admin') {
@@ -82,6 +88,73 @@ export default function UsersPage() {
             }
         } finally {
             setActivating(null);
+        }
+    };
+
+    const handleEdit = (profile: UserProfile) => {
+        setEditingUser(profile);
+    };
+
+    const handleDelete = async (userId: string) => {
+        if (!window.confirm('¿Estás seguro de que deseas eliminar este usuario? Esta acción no se puede deshacer.')) {
+            return;
+        }
+
+        try {
+            setDeletingUserId(userId);
+            await userService.deleteUserProfile(userId);
+            await fetchData();
+        } catch (err: unknown) {
+            if (err instanceof AxiosError) {
+                setError(err.response?.data?.error?.message || 'Error al eliminar usuario');
+            } else {
+                setError('Error al eliminar usuario');
+            }
+        } finally {
+            setDeletingUserId(null);
+        }
+    };
+
+    const handleDeactivate = async (userId: string) => {
+        if (!window.confirm('¿Estás seguro de que deseas desactivar este usuario? No podrá iniciar sesión hasta que sea reactivado.')) {
+            return;
+        }
+
+        try {
+            setDeactivatingUserId(userId);
+            await authService.deactivateUser(userId);
+            await fetchData();
+        } catch (err: unknown) {
+            if (err instanceof AxiosError) {
+                setError(err.response?.data?.error?.message || 'Error al desactivar usuario');
+            } else {
+                setError('Error al desactivar usuario');
+            }
+        } finally {
+            setDeactivatingUserId(null);
+        }
+    };
+
+    const handleChangeRole = async (userId: string, currentRole: string) => {
+        const newRole = currentRole === 'admin' ? 'user' : 'admin';
+        const roleText = newRole === 'admin' ? 'administrador' : 'usuario';
+        
+        if (!window.confirm(`¿Estás seguro de que deseas cambiar el rol de este usuario a ${roleText}?`)) {
+            return;
+        }
+
+        try {
+            setChangingRoleUserId(userId);
+            await authService.changeUserRole(userId, newRole as 'user' | 'admin');
+            await fetchData();
+        } catch (err: unknown) {
+            if (err instanceof AxiosError) {
+                setError(err.response?.data?.error?.message || 'Error al cambiar rol');
+            } else {
+                setError('Error al cambiar rol');
+            }
+        } finally {
+            setChangingRoleUserId(null);
         }
     };
 
@@ -195,12 +268,13 @@ export default function UsersPage() {
                                         <th className="text-left py-3 px-4 text-sm font-semibold text-slate-300">Teléfono</th>
                                         <th className="text-left py-3 px-4 text-sm font-semibold text-slate-300">Dirección</th>
                                         <th className="text-left py-3 px-4 text-sm font-semibold text-slate-300">Fecha de Registro</th>
+                                        <th className="text-left py-3 px-4 text-sm font-semibold text-slate-300">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {activeUsers.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="py-8 text-center text-slate-400">
+                                            <td colSpan={7} className="py-8 text-center text-slate-400">
                                                 No hay usuarios activos
                                             </td>
                                         </tr>
@@ -233,6 +307,45 @@ export default function UsersPage() {
                                                     <td className="py-3 px-4 text-sm text-slate-400">
                                                         {new Date(authUser.createdAt).toLocaleDateString()}
                                                     </td>
+                                                    <td className="py-3 px-4 text-sm">
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {profile && (
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => handleEdit(profile)}
+                                                                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition"
+                                                                    >
+                                                                        Editar
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleDeactivate(authUser.id)}
+                                                                        disabled={deactivatingUserId === authUser.id}
+                                                                        className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                                                    >
+                                                                        {deactivatingUserId === authUser.id ? 'Desactivando...' : 'Desactivar'}
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleChangeRole(authUser.id, authUser.role)}
+                                                                        disabled={changingRoleUserId === authUser.id}
+                                                                        className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                                                    >
+                                                                        {changingRoleUserId === authUser.id 
+                                                                            ? 'Cambiando...' 
+                                                                            : authUser.role === 'admin' 
+                                                                                ? 'Quitar Admin' 
+                                                                                : 'Hacer Admin'}
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleDelete(authUser.id)}
+                                                                        disabled={deletingUserId === authUser.id}
+                                                                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                                                    >
+                                                                        {deletingUserId === authUser.id ? 'Eliminando...' : 'Eliminar'}
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </td>
                                                 </tr>
                                             );
                                         })
@@ -242,6 +355,19 @@ export default function UsersPage() {
                         </div>
                     </div>
                 </>
+            )}
+
+            {/* Modal de Edición */}
+            {editingUser && (
+                <EditUserModal
+                    user={editingUser}
+                    isOpen={!!editingUser}
+                    onClose={() => setEditingUser(null)}
+                    onSuccess={() => {
+                        fetchData();
+                        setEditingUser(null);
+                    }}
+                />
             )}
         </section>
     );

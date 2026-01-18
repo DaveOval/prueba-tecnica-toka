@@ -4,11 +4,15 @@ import { NotFoundPage } from '../../pages/NotFoundPage';
 import LoginPage from '../../pages/LoginPage';
 import SigninPage from '../../pages/SiginPage';
 import UsersPage from '../../pages/UsersPage';
+import ProfilePage from '../../pages/ProfilePage';
+import AuditLogsPage from '../../pages/AuditLogsPage';
 import { ProtectedRoute } from './ProtectedRoute';
 
 export const routes = {
     home: '/',
     users: '/users',
+    profile: '/profile',
+    auditLogs: '/audit-logs',
     notFound: '*',
     login: '/login',
     signin: '/signin',
@@ -31,10 +35,26 @@ export const protectedRoutes = [
         ) 
     },
     { 
+        path: routes.profile, 
+        element: (
+            <ProtectedRoute>
+                <ProfilePage />
+            </ProtectedRoute>
+        ) 
+    },
+    { 
         path: routes.users, 
         element: (
             <ProtectedRoute>
                 <UsersPage />
+            </ProtectedRoute>
+        ) 
+    },
+    { 
+        path: routes.auditLogs, 
+        element: (
+            <ProtectedRoute>
+                <AuditLogsPage />
             </ProtectedRoute>
         ) 
     },

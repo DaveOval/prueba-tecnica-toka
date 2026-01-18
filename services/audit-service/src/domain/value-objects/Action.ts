@@ -6,6 +6,8 @@ export enum Action {
     LOGIN = 'LOGIN',
     LOGOUT = 'LOGOUT',
     REGISTER = 'REGISTER',
+    ACTIVATE = 'ACTIVATE',
+    DEACTIVATE = 'DEACTIVATE',
 }
 
 export class ActionVO {

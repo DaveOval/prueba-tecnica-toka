@@ -123,6 +123,7 @@ services:
       KAFKA_BROKER: kafka:9093
       REDIS_HOST: redis
       REDIS_PORT: ${REDIS_PORT:-6379}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-your-super-secret-access-key-change-in-production}
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3001
     ports:
@@ -147,6 +148,7 @@ services:
     environment:
       MONGODB_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin}@mongodb:27017/${MONGO_DB:-audit_db}?authSource=admin
       KAFKA_BROKER: kafka:9093
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-your-super-secret-access-key-change-in-production}
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3002
     ports:

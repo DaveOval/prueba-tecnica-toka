@@ -25,15 +25,15 @@ export class Database {
         return this.client;
     }
 
-    static async initialize(): Promise<void> {
+    static async initialize(): Promise<{ adminId: string; adminEmail: string } | null> {
         const client = this.getClient();
         await client.$connect();
         
-        // Inicializar usuario admin si no existe
-        await this.initializeAdminUser();
+        // Inicializar usuario admin si no existe y retornar info si se creó
+        return await this.initializeAdminUser();
     }
 
-    private static async initializeAdminUser(): Promise<void> {
+    private static async initializeAdminUser(): Promise<{ adminId: string; adminEmail: string } | null> {
         const client = this.getClient();
         const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
         const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
@@ -48,7 +48,7 @@ export class Database {
 
             if (existingAdmin) {
                 console.log('Admin user already exists');
-                return;
+                return null;
             }
 
             // Crear usuario admin
@@ -66,9 +66,11 @@ export class Database {
             });
 
             console.log(`Admin user created: ${adminEmail}`);
+            return { adminId, adminEmail };
         } catch (error) {
             console.error('Error initializing admin user:', error);
             // No lanzar error para no bloquear el inicio de la aplicación
+            return null;
         }
     }
 

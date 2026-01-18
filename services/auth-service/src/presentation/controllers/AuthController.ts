@@ -2,6 +2,8 @@ import type { Request, Response, NextFunction } from 'express';
 import { RegisterUserUseCase } from '../../application/use-cases/RegisterUserUseCase.js';
 import { LoginUseCase } from '../../application/use-cases/LoginUseCase.js';
 import { ActivateUserUseCase } from '../../application/use-cases/ActivateUserUseCase.js';
+import { DeactivateUserUseCase } from '../../application/use-cases/DeactivateUserUseCase.js';
+import { ChangeUserRoleUseCase } from '../../application/use-cases/ChangeUserRoleUseCase.js';
 import { GetAllUsersUseCase } from '../../application/use-cases/GetAllUsersUseCase.js';
 import type { RegisterUserDTO } from '../../application/dto/RegisterUserDTO.js';
 import type { LoginDTO } from '../../application/dto/LoginDTO.js';
@@ -12,6 +14,8 @@ export class AuthController {
     private readonly registerUserUseCase: RegisterUserUseCase,
     private readonly loginUseCase: LoginUseCase,
     private readonly activateUserUseCase: ActivateUserUseCase,
+    private readonly deactivateUserUseCase: DeactivateUserUseCase,
+    private readonly changeUserRoleUseCase: ChangeUserRoleUseCase,
     private readonly getAllUsersUseCase: GetAllUsersUseCase
   ) {}
 
@@ -105,6 +109,54 @@ export class AuthController {
         data: result,
       });
     } catch (error) {
+      next(error);
+    }
+  };
+
+  deactivate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { userId } = req.params;
+
+      await this.deactivateUserUseCase.execute(userId);
+
+      res.status(200).json({
+        success: true,
+        message: 'User deactivated successfully',
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === 'User not found') {
+          next(new AppError(404, error.message));
+          return;
+        }
+      }
+      next(error);
+    }
+  };
+
+  changeRole = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { userId } = req.params;
+      const { role } = req.body;
+
+      if (!role || (role !== 'user' && role !== 'admin')) {
+        next(new AppError(400, 'Invalid role. Must be "user" or "admin"'));
+        return;
+      }
+
+      await this.changeUserRoleUseCase.execute(userId, role);
+
+      res.status(200).json({
+        success: true,
+        message: 'User role changed successfully',
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === 'User not found') {
+          next(new AppError(404, error.message));
+          return;
+        }
+      }
       next(error);
     }
   };

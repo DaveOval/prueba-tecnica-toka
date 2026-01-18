@@ -14,6 +14,8 @@ export function createAuthRoutes(authController: AuthController): Router {
     // Rutas protegidas (solo admin)
     router.get('/users', authenticate, authorize('admin'), authController.getAllUsers);
     router.patch('/activate/:userId', authenticate, authorize('admin'), authController.activate);
+    router.patch('/deactivate/:userId', authenticate, authorize('admin'), authController.deactivate);
+    router.patch('/change-role/:userId', authenticate, authorize('admin'), authController.changeRole);
 
     return router;
 }

@@ -4,6 +4,7 @@ export enum EntityType {
     AUTH = 'AUTH',
     SYSTEM = 'SYSTEM',
     DOCUMENT = 'DOCUMENT',
+    PROMPT = 'PROMPT',
 }
 
 export class EntityTypeVO {

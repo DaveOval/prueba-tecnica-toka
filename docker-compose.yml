@@ -226,6 +226,8 @@ services:
       CHROMA_HOST: chroma
       CHROMA_PORT: 8000
       CHROMA_COLLECTION_NAME: documents
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
@@ -241,6 +243,8 @@ services:
       kafka:
         condition: service_healthy
       chroma:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       vectorization-service:
         condition: service_started

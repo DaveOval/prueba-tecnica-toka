@@ -1,4 +1,4 @@
-import { apiClient } from '../api/apiClient';
+import { aiChatApi, vectorizationApi } from '../api/apiClient';
 
 // Tipos para el servicio de IA
 export interface ChatMessage {
@@ -127,7 +127,7 @@ export interface Conversation {
 export const aiService = {
     // Chat con el agente
     async sendMessage(request: ChatRequest): Promise<ChatResponse> {
-        const response = await apiClient.post<ChatResponse>('/api/ai/chat', request);
+        const response = await aiChatApi.post<ChatResponse>('/chat', request);
         return response.data;
     },
 
@@ -138,8 +138,8 @@ export const aiService = {
         if (document.name) formData.append('name', document.name);
         if (document.description) formData.append('description', document.description);
 
-        const response = await apiClient.post<DocumentUploadResponse>>(
-            '/api/ai/documents/upload',
+        const response = await vectorizationApi.post<DocumentUploadResponse>>(
+            '/documents/upload',
             formData,
             {
                 headers: {
@@ -152,60 +152,60 @@ export const aiService = {
 
     // Listar documentos
     async getDocuments(): Promise<{ success: boolean; data: Document[] }> {
-        const response = await apiClient.get<{ success: boolean; data: Document[] }>('/api/ai/documents');
+        const response = await vectorizationApi.get<{ success: boolean; data: Document[] }>('/documents');
         return response.data;
     },
 
     // Eliminar documento
     async deleteDocument(documentId: string): Promise<{ success: boolean; message: string }> {
-        const response = await apiClient.delete<{ success: boolean; message: string }>(
-            `/api/ai/documents/${documentId}`
+        const response = await vectorizationApi.delete<{ success: boolean; message: string }>(
+            `/documents/${documentId}`
         );
         return response.data;
     },
 
     // Gestión de prompts
     async getPromptTemplates(): Promise<{ success: boolean; data: PromptTemplate[] }> {
-        const response = await apiClient.get<{ success: boolean; data: PromptTemplate[] }>('/api/ai/prompts');
+        const response = await aiChatApi.get<{ success: boolean; data: PromptTemplate[] }>('/prompts');
         return response.data;
     },
 
     async createPromptTemplate(template: Omit<PromptTemplate, 'id' | 'createdAt' | 'updatedAt'>): Promise<{ success: boolean; data: PromptTemplate }> {
-        const response = await apiClient.post<{ success: boolean; data: PromptTemplate }>('/api/ai/prompts', template);
+        const response = await aiChatApi.post<{ success: boolean; data: PromptTemplate }>('/prompts', template);
         return response.data;
     },
 
     async updatePromptTemplate(templateId: string, template: Partial<PromptTemplate>): Promise<{ success: boolean; data: PromptTemplate }> {
-        const response = await apiClient.put<{ success: boolean; data: PromptTemplate }>(
-            `/api/ai/prompts/${templateId}`,
+        const response = await aiChatApi.put<{ success: boolean; data: PromptTemplate }>(
+            `/prompts/${templateId}`,
             template
         );
         return response.data;
     },
 
     async deletePromptTemplate(templateId: string): Promise<{ success: boolean; message: string }> {
-        const response = await apiClient.delete<{ success: boolean; message: string }>(
-            `/api/ai/prompts/${templateId}`
+        const response = await aiChatApi.delete<{ success: boolean; message: string }>(
+            `/prompts/${templateId}`
         );
         return response.data;
     },
 
     // Conversaciones
     async getConversations(): Promise<{ success: boolean; data: Conversation[] }> {
-        const response = await apiClient.get<{ success: boolean; data: Conversation[] }>('/api/ai/conversations');
+        const response = await aiChatApi.get<{ success: boolean; data: Conversation[] }>('/conversations');
         return response.data;
     },
 
     async getConversation(conversationId: string): Promise<{ success: boolean; data: Conversation }> {
-        const response = await apiClient.get<{ success: boolean; data: Conversation }>(
-            `/api/ai/conversations/${conversationId}`
+        const response = await aiChatApi.get<{ success: boolean; data: Conversation }>(
+            `/conversations/${conversationId}`
         );
         return response.data;
     },
 
     async deleteConversation(conversationId: string): Promise<{ success: boolean; message: string }> {
-        const response = await apiClient.delete<{ success: boolean; message: string }>(
-            `/api/ai/conversations/${conversationId}`
+        const response = await aiChatApi.delete<{ success: boolean; message: string }>(
+            `/conversations/${conversationId}`
         );
         return response.data;
     },
@@ -216,8 +216,8 @@ export const aiService = {
         if (limit) params.append('limit', limit.toString());
         if (offset) params.append('offset', offset.toString());
 
-        const response = await apiClient.get<{ success: boolean; data: PromptEvaluation[]; total: number }>(
-            `/api/ai/evaluations?${params.toString()}`
+        const response = await aiChatApi.get<{ success: boolean; data: PromptEvaluation[]; total: number }>(
+            `/evaluations?${params.toString()}`
         );
         return response.data;
     },
@@ -233,7 +233,7 @@ export const aiService = {
             documentsProcessed: number;
         };
     }> {
-        const response = await apiClient.get('/api/ai/metrics');
+        const response = await aiChatApi.get('/metrics');
         return response.data;
     },
 };

@@ -125,3 +125,71 @@ auditApi.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
+// Cliente específico para AI Chat Service
+export const aiChatApi = axios.create({
+    baseURL: import.meta.env.VITE_API_AI_CHAT_URL || 'http://localhost:3004/api/ai',
+    headers: {
+        'Content-Type': 'application/json',
+    },
+});
+
+// Interceptor para agregar token a aiChatApi
+aiChatApi.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('access_token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
+// Interceptor de respuesta para aiChatApi (manejar 401)
+aiChatApi.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            localStorage.removeItem('access_token');
+            window.location.href = '/login';
+        }
+        return Promise.reject(error);
+    }
+);
+
+// Cliente específico para Vectorization Service (documentos)
+export const vectorizationApi = axios.create({
+    baseURL: import.meta.env.VITE_API_VECTORIZATION_URL || 'http://localhost:3003/api/ai',
+    headers: {
+        'Content-Type': 'application/json',
+    },
+});
+
+// Interceptor para agregar token a vectorizationApi
+vectorizationApi.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('access_token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
+// Interceptor de respuesta para vectorizationApi (manejar 401)
+vectorizationApi.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            localStorage.removeItem('access_token');
+            window.location.href = '/login';
+        }
+        return Promise.reject(error);
+    }
+);

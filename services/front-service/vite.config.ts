@@ -27,6 +27,21 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/api/ai': {
+        target: process.env.VITE_API_AI_CHAT_URL?.replace('/api/ai', '') || 'http://localhost:3004',
+        changeOrigin: true,
+        secure: false,
+        configure: (proxy, _options) => {
+          // Para documentos, usar vectorization-service
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            if (req.url?.includes('/documents')) {
+              const vectorizationUrl = process.env.VITE_API_VECTORIZATION_URL?.replace('/api/ai', '') || 'http://localhost:3003';
+              proxyReq.path = req.url;
+              // Cambiar el target dinámicamente sería complejo, mejor manejar en el servicio
+            }
+          });
+        },
+      },
     },
   },
 })

@@ -83,6 +83,19 @@ services:
       retries: 5
       start_period: 10s
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   auth-service:
     build:
       context: ./services/auth-service
@@ -164,6 +177,69 @@ services:
       # Excluir node_modules del volumen para preservar las dependencias instaladas
       - /app/node_modules
 
+  vectorization-service:
+    build:
+      context: ./services/vectorization-service
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/vectorization_db
+      KAFKA_BROKER: kafka:9093
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      QDRANT_COLLECTION_NAME: documents
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-your-super-secret-access-key-change-in-production}
+      PORT: 3003
+      NODE_ENV: ${NODE_ENV:-development}
+      UPLOAD_DIR: /app/uploads
+      MAX_FILE_SIZE_MB: 50
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    volumes:
+      - ./services/vectorization-service/src:/app/src
+      - vectorization_uploads:/app/uploads
+      # Excluir __pycache__ del volumen
+      - /app/__pycache__
+
+  ai-chat-service:
+    build:
+      context: ./services/ai-chat-service
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/ai_chat_db
+      KAFKA_BROKER: kafka:9093
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      QDRANT_COLLECTION_NAME: documents
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      DEFAULT_SYSTEM_PROMPT: ${DEFAULT_SYSTEM_PROMPT:-Eres un asistente útil. Responde preguntas basándote en el contexto proporcionado.}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-your-super-secret-access-key-change-in-production}
+      PORT: 3004
+      NODE_ENV: ${NODE_ENV:-development}
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      vectorization-service:
+        condition: service_started
+    volumes:
+      - ./services/ai-chat-service/src:/app/src
+      # Excluir __pycache__ del volumen
+      - /app/__pycache__
+
   front-service:
     build:
       context: ./services/front-service
@@ -171,6 +247,8 @@ services:
       VITE_API_AUTH_URL: ${VITE_API_AUTH_URL:-http://localhost:3000/api/auth}
       VITE_API_USER_URL: ${VITE_API_USER_URL:-http://localhost:3001/api/users}
       VITE_API_AUDIT_URL: ${VITE_API_AUDIT_URL:-http://localhost:3002/api/audit}
+      VITE_API_AI_CHAT_URL: ${VITE_API_AI_CHAT_URL:-http://localhost:3004/api/ai}
+      VITE_API_VECTORIZATION_URL: ${VITE_API_VECTORIZATION_URL:-http://localhost:3003/api/ai}
       VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
     ports:
       - "5173:5173"
@@ -180,6 +258,10 @@ services:
       user-service:
         condition: service_started
       audit-service:
+        condition: service_started
+      ai-chat-service:
+        condition: service_started
+      vectorization-service:
         condition: service_started
     volumes:
       # (hot reload)
@@ -198,3 +280,5 @@ volumes:
   postgres_data:
   redis_data:
   mongodb_data:
+  qdrant_data:
+  vectorization_uploads:

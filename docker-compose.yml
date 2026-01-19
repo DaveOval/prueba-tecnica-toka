@@ -246,6 +246,7 @@ services:
       context: ./services/ai-chat-service
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/ai_chat_db
+      MONGODB_URI: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-admin}@mongodb:27017/${MONGO_DB:-audit_db}?authSource=admin
       KAFKA_BROKER: kafka:9093
       CHROMA_HOST: chroma
       CHROMA_PORT: 8000

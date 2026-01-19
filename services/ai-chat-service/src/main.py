@@ -1,9 +1,10 @@
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 import os
 import uuid
+from datetime import datetime
 from jose import jwt, JWTError
 from dotenv import load_dotenv
 
@@ -11,6 +12,7 @@ from src.infrastructure.services.openai_llm_service import OpenAILLMService
 from src.infrastructure.services.openai_embedding_service import OpenAIEmbeddingService
 from src.infrastructure.vector_db.chroma_vector_search import ChromaVectorSearch
 from src.infrastructure.repositories.redis_prompt_repository import RedisPromptRepository
+from src.infrastructure.repositories.mongo_evaluation_repository import MongoEvaluationRepository
 from src.infrastructure.messaging.kafka_event_publisher import KafkaEventPublisher
 from src.application.use_cases.send_message_use_case import SendMessageUseCase
 from src.domain.entities.prompt_template import PromptTemplate
@@ -34,7 +36,40 @@ llm_service = OpenAILLMService()
 embedding_service = OpenAIEmbeddingService()
 vector_search = ChromaVectorSearch()
 prompt_repository = RedisPromptRepository()
+evaluation_repository = MongoEvaluationRepository()
 event_publisher = KafkaEventPublisher()
+
+# Función helper para calcular costo basado en tokens y modelo
+def calculate_cost(tokens_input: int, tokens_output: int, model: str = "gpt-4o-mini") -> dict:
+    """Calcula el costo en USD basado en los tokens y el modelo usado"""
+    # Precios por 1M tokens (actualizados a enero 2024)
+    pricing = {
+        "gpt-4o-mini": {
+            "input": 0.15 / 1_000_000,  # $0.15 por 1M tokens
+            "output": 0.60 / 1_000_000,  # $0.60 por 1M tokens
+        },
+        "gpt-4o": {
+            "input": 2.50 / 1_000_000,  # $2.50 por 1M tokens
+            "output": 10.00 / 1_000_000,  # $10.00 por 1M tokens
+        },
+        "gpt-4-turbo": {
+            "input": 10.00 / 1_000_000,  # $10.00 por 1M tokens
+            "output": 30.00 / 1_000_000,  # $30.00 por 1M tokens
+        },
+    }
+    
+    model_pricing = pricing.get(model, pricing["gpt-4o-mini"])
+    
+    cost_input = tokens_input * model_pricing["input"]
+    cost_output = tokens_output * model_pricing["output"]
+    cost_total = cost_input + cost_output
+    
+    return {
+        "input": round(cost_input, 6),
+        "output": round(cost_output, 6),
+        "total": round(cost_total, 6),
+    }
+
 
 # Función de dependencia para obtener user_id del JWT
 async def get_user_id(authorization: Optional[str] = Header(None)) -> str:
@@ -194,6 +229,30 @@ async def chat(
             user_id=user_id,
             use_rag=True,
         )
+
+        # Guardar evaluación de la conversación
+        try:
+            tokens = response.get("tokens", {})
+            model = os.getenv("LLM_MODEL", "gpt-4o-mini")
+            cost = calculate_cost(
+                tokens_input=tokens.get("input", 0),
+                tokens_output=tokens.get("output", 0),
+                model=model,
+            )
+            
+            await evaluation_repository.create(
+                conversation_id=response.get("conversationId", ""),
+                prompt_template_id=request.promptTemplateId,
+                metrics={
+                    "latency": response.get("latency", 0),
+                    "tokens": tokens,
+                    "cost": cost,
+                },
+                quality=None,  # TODO: Implementar evaluación de calidad
+            )
+        except Exception as e:
+            logger.warning("Error saving evaluation", error=str(e))
+            # No fallar la petición si falla guardar la evaluación
 
         return {"success": True, "data": response}
     except Exception as e:
@@ -371,25 +430,90 @@ async def delete_prompt(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/ai/evaluations")
+async def get_evaluations(
+    limit: Optional[int] = Query(None, description="Número máximo de evaluaciones a retornar"),
+    offset: Optional[int] = Query(None, description="Número de evaluaciones a saltar"),
+):
+    """Obtiene las evaluaciones de las conversaciones con paginación"""
+    try:
+        evaluations, total = await evaluation_repository.get_all(limit=limit, offset=offset)
+        
+        # Convertir datetime a string ISO para JSON
+        formatted_evaluations = []
+        for eval in evaluations:
+            formatted_eval = {
+                "conversationId": eval["conversationId"],
+                "promptTemplateId": eval.get("promptTemplateId"),
+                "metrics": eval["metrics"],
+                "quality": eval.get("quality"),
+                "timestamp": eval["timestamp"].isoformat() if isinstance(eval["timestamp"], datetime) else eval["timestamp"],
+            }
+            formatted_evaluations.append(formatted_eval)
+        
+        return {
+            "success": True,
+            "data": formatted_evaluations,
+            "total": total,
+        }
+    except Exception as e:
+        logger.error("Error getting evaluations", error=str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/ai/metrics")
 async def get_metrics():
-    # TODO: Implementar métricas reales
-    return {
-        "success": True,
-        "data": {
-            "totalConversations": 0,
-            "totalMessages": 0,
-            "totalTokens": 0,
-            "totalCost": 0,
-            "averageLatency": 0,
-            "documentsProcessed": 0,
-        },
-    }
+    """Obtiene métricas agregadas del servicio"""
+    try:
+        # Obtener todas las evaluaciones para calcular métricas
+        evaluations, total = await evaluation_repository.get_all(limit=1000)
+        
+        total_conversations = len(set(eval["conversationId"] for eval in evaluations))
+        total_messages = len(evaluations)
+        total_tokens = sum(eval["metrics"].get("tokens", {}).get("total", 0) for eval in evaluations)
+        total_cost = sum(eval["metrics"].get("cost", {}).get("total", 0) for eval in evaluations)
+        
+        latencies = [eval["metrics"].get("latency", 0) for eval in evaluations if eval["metrics"].get("latency", 0) > 0]
+        average_latency = sum(latencies) / len(latencies) if latencies else 0
+        
+        # Obtener conteo de documentos desde ChromaDB
+        try:
+            collection = vector_search.client.get_collection(name=vector_search.collection_name)
+            documents_processed = collection.count()
+        except:
+            documents_processed = 0
+        
+        return {
+            "success": True,
+            "data": {
+                "totalConversations": total_conversations,
+                "totalMessages": total_messages,
+                "totalTokens": total_tokens,
+                "totalCost": total_cost,
+                "averageLatency": average_latency,
+                "documentsProcessed": documents_processed,
+            },
+        }
+    except Exception as e:
+        logger.error("Error getting metrics", error=str(e), exc_info=True)
+        # Retornar valores por defecto si hay error
+        return {
+            "success": True,
+            "data": {
+                "totalConversations": 0,
+                "totalMessages": 0,
+                "totalTokens": 0,
+                "totalCost": 0,
+                "averageLatency": 0,
+                "documentsProcessed": 0,
+            },
+        }
 
 
 @app.on_event("shutdown")
 async def shutdown():
     await event_publisher.disconnect()
+    await evaluation_repository.close()
 
 
 if __name__ == "__main__":

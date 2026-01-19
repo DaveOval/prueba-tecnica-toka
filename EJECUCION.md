@@ -186,6 +186,59 @@ El usuario administrador se crea automáticamente con las credenciales configura
 2. Iniciar sesión con las credenciales del administrador
 3. Explorar las funcionalidades disponibles
 
+## Paso 8: Subir un Documento PDF para Vectorizar
+
+Para probar la funcionalidad de RAG (Retrieval-Augmented Generation), es necesario subir al menos un documento PDF que será vectorizado y usado como contexto para las respuestas del chat con IA.
+
+### 8.1 Usar Documento de Ejemplo
+
+El proyecto incluye un documento de ejemplo en el directorio `examples/`:
+
+- **aviones_rag.pdf**: Documento de ejemplo sobre aviones
+
+### 8.2 Subir Documento desde el Frontend
+
+1. En la aplicación web (`http://localhost:5173`), navegar a la sección de **"Documentos"** o **"AI Documents"**
+2. Hacer clic en el botón de **"Subir Documento"** o **"Upload Document"**
+3. Seleccionar el archivo PDF (puedes usar `examples/aviones_rag.pdf` o cualquier otro PDF)
+4. Opcionalmente, agregar un nombre y descripción al documento
+5. Hacer clic en **"Subir"** o **"Upload"**
+6. Esperar a que el documento sea procesado (esto puede tardar varios segundos)
+
+### 8.3 Verificar que el Documento Fue Procesado
+
+Una vez procesado, el documento debería aparecer en la lista de documentos disponibles. El sistema habrá:
+- Extraído el texto del PDF
+- Generado embeddings para cada chunk del documento
+- Almacenado los vectores en ChromaDB
+
+### 8.4 Probar RAG con el Documento
+
+1. Navegar a la sección de **"Chat con IA"** o **"AI Chat"**
+2. Hacer una pregunta relacionada con el contenido del documento subido
+3. El sistema debería responder usando el contexto del documento vectorizado
+
+**Ejemplo de preguntas (si usaste aviones_rag.pdf):**
+- "¿Qué tipos de aviones se mencionan en el documento?"
+- "Explica las características principales de los aviones"
+- "¿Cuál es la información más relevante sobre aviones?"
+
+**Nota:** Si no subes ningún documento, el chat con IA funcionará pero sin contexto de documentos.
+
+### 8.5 Subir Documento usando API (Alternativa)
+
+También puedes subir documentos directamente usando la API:
+
+```bash
+curl -X POST http://localhost:3003/api/ai/documents/upload \
+  -H "Authorization: Bearer TU_TOKEN_JWT" \
+  -F "file=@examples/aviones_rag.pdf" \
+  -F "name=Aviones RAG" \
+  -F "description=Documento de ejemplo sobre aviones"
+```
+
+**Nota:** Necesitarás un token JWT válido. Puedes obtenerlo iniciando sesión en el frontend o usando el endpoint de login.
+
 ## Comandos Útiles
 
 ### Ver Logs de Todos los Servicios

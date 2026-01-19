@@ -1,7 +1,10 @@
 # Created by https://www.toptal.com/developers/gitignore/api/node
 # Edit at https://www.toptal.com/developers/gitignore?templates=node
 
+# Excluir PDFs excepto los de ejemplo
 *.pdf
+!examples/*.pdf
+
 ENDPOINTS_TESTING.md
 PRISMA_COMMANDS.md
 

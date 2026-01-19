@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcrypt';
+import logger from './logger.js';
 
 export class Database {
     private static client: PrismaClient;
@@ -47,7 +48,7 @@ export class Database {
             });
 
             if (existingAdmin) {
-                console.log('Admin user already exists');
+                logger.info({ message: 'Admin user already exists' });
                 return null;
             }
 
@@ -65,10 +66,17 @@ export class Database {
                 },
             });
 
-            console.log(`Admin user created: ${adminEmail}`);
+            logger.info({ 
+                message: 'Admin user created',
+                adminEmail 
+            });
             return { adminId, adminEmail };
         } catch (error) {
-            console.error('Error initializing admin user:', error);
+            logger.error({ 
+                message: 'Error initializing admin user',
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
+            });
             // No lanzar error para no bloquear el inicio de la aplicación
             return null;
         }

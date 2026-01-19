@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
+import logger from './logger.js';
 
 export class Database {
     private static client: PrismaClient;
@@ -56,14 +57,27 @@ export class Database {
 
             // Si no existe, crearla
             if (result.rows.length === 0) {
-                console.log(`Creating database ${databaseName}...`);
+                logger.info({ 
+                    message: 'Creating database',
+                    databaseName 
+                });
                 await adminPool.query(`CREATE DATABASE "${databaseName}"`);
-                console.log(`Database ${databaseName} created successfully`);
+                logger.info({ 
+                    message: 'Database created successfully',
+                    databaseName 
+                });
             } else {
-                console.log(`Database ${databaseName} already exists`);
+                logger.info({ 
+                    message: 'Database already exists',
+                    databaseName 
+                });
             }
         } catch (error) {
-            console.error('Error ensuring database exists:', error);
+            logger.error({ 
+                message: 'Error ensuring database exists',
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
+            });
             throw error;
         } finally {
             await adminPool.end();

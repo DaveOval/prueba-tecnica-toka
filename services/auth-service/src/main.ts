@@ -16,6 +16,7 @@ import { GetAllUsersUseCase } from './application/use-cases/GetAllUsersUseCase.j
 import { AuthController } from './presentation/controllers/AuthController.js';
 import { createAuthRoutes } from './presentation/routes/auth.routes.js';
 import { errorHandler } from './presentation/middlewares/errorHandler.js';
+import logger from './infrastructure/config/logger.js';
 
 
 const app = express();
@@ -38,11 +39,11 @@ async function initializeApp() {
     try {
         // Initialize database (retorna info del admin si se creó)
         const adminInfo = await Database.initialize();
-        console.log('Database initialized');
+        logger.info({ message: 'Database initialized' });
 
         // Initialize Kafka (ya retorna el publisher conectado)
         const eventPublisher = await initializeKafka();
-        console.log('Kafka initialized');
+        logger.info({ message: 'Kafka initialized' });
 
         // Si se creó un admin, publicar evento para crear su perfil en user-service
         if (adminInfo) {
@@ -52,9 +53,16 @@ async function initializeApp() {
                     email: adminInfo.adminEmail,
                     timestamp: new Date().toISOString(),
                 });
-                console.log(`Published user.registered event for admin: ${adminInfo.adminEmail}`);
+                logger.info({ 
+                    message: 'Published user.registered event for admin',
+                    adminEmail: adminInfo.adminEmail 
+                });
             } catch (error) {
-                console.error('Error publishing admin user.registered event:', error);
+                logger.error({ 
+                    message: 'Error publishing admin user.registered event',
+                    error: error instanceof Error ? error.message : String(error),
+                    stack: error instanceof Error ? error.stack : undefined
+                });
                 // No bloquear el inicio si falla la publicación
             }
         }
@@ -94,23 +102,30 @@ async function initializeApp() {
 
         const PORT = process.env.PORT || 3000;
         app.listen(PORT, () => {
-            console.log(`Auth service running on http://localhost:${PORT}`);
+            logger.info({ 
+                message: 'Auth service started',
+                port: PORT 
+            });
         });
     } catch (error) {
-        console.error('Failed to initialize application:', error);
+        logger.error({ 
+            message: 'Failed to initialize application',
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+        });
         process.exit(1);
     }
 }
 
 process.on('SIGTERM', async () => {
-    console.log('SIGTERM received, shutting down gracefully...');
+    logger.info({ message: 'SIGTERM received, shutting down gracefully' });
     await Database.close();
     await closeKafka();
     process.exit(0);
   });
   
   process.on('SIGINT', async () => {
-    console.log('SIGINT received, shutting down gracefully...');
+    logger.info({ message: 'SIGINT received, shutting down gracefully' });
     await Database.close();
     await closeKafka();
     process.exit(0);

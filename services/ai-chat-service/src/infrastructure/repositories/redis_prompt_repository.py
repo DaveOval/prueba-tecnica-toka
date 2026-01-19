@@ -45,7 +45,7 @@ class RedisPromptRepository(IPromptRepository):
             
             return prompt
         except Exception as e:
-            print(f"Error creating prompt in Redis: {e}")
+            logger.error("Error creating prompt in Redis", prompt_id=prompt.id, error=str(e), exc_info=True)
             raise
 
     async def get_by_id(self, prompt_id: str) -> Optional[PromptTemplate]:
@@ -58,7 +58,7 @@ class RedisPromptRepository(IPromptRepository):
             
             return self._deserialize(data)
         except Exception as e:
-            print(f"Error getting prompt from Redis: {e}")
+            logger.error("Error getting prompt from Redis", prompt_id=prompt_id, error=str(e), exc_info=True)
             return None
 
     async def get_all(self) -> List[PromptTemplate]:
@@ -77,7 +77,7 @@ class RedisPromptRepository(IPromptRepository):
             
             return prompts
         except Exception as e:
-            print(f"Error getting all prompts from Redis: {e}")
+            logger.error("Error getting all prompts from Redis", error=str(e), exc_info=True)
             return []
 
     async def update(self, prompt: PromptTemplate) -> PromptTemplate:
@@ -104,7 +104,7 @@ class RedisPromptRepository(IPromptRepository):
             
             return prompt
         except Exception as e:
-            print(f"Error updating prompt in Redis: {e}")
+            logger.error("Error updating prompt in Redis", prompt_id=prompt.id, error=str(e), exc_info=True)
             raise
 
     async def delete(self, prompt_id: str) -> bool:
@@ -119,7 +119,7 @@ class RedisPromptRepository(IPromptRepository):
             
             return deleted > 0
         except Exception as e:
-            print(f"Error deleting prompt from Redis: {e}")
+            logger.error("Error deleting prompt from Redis", prompt_id=prompt_id, error=str(e), exc_info=True)
             return False
 
     def _deserialize(self, data: dict) -> PromptTemplate:

@@ -11,6 +11,7 @@ import { createAuditRoutes } from './presentation/routes/audit.routes.js';
 import { errorHandler } from './presentation/middlewares/errorHandler.js';
 import { Action } from './domain/value-objects/Action.js';
 import { EntityType } from './domain/value-objects/EntityType.js';
+import logger from './infrastructure/config/logger.js';
 
 const app = express();
 
@@ -32,11 +33,11 @@ async function initializeApp() {
     try {
         // Initialize MongoDB
         await Database.connect();
-        console.log('MongoDB initialized');
+        logger.info({ message: 'MongoDB initialized' });
 
         // Initialize Kafka consumer
         const eventConsumer = await initializeKafka();
-        console.log('Kafka consumer initialized');
+        logger.info({ message: 'Kafka consumer initialized' });
 
         // Initialize infrastructure services
         const auditLogRepository = new MongoAuditLogRepository();
@@ -57,17 +58,26 @@ async function initializeApp() {
         // Subscribe to audit events from other services
         await eventConsumer.subscribe("audit.event", async (message) => {
             try {
-                console.log("Received audit event:", message);
+                logger.info({ 
+                    message: 'Received audit event',
+                    event: message 
+                });
                 const { userId, action, entityType, entityId, details, ipAddress, userAgent } = message;
                 
                 if (action && entityType) {
                     // Validar que action y entityType sean valores válidos
                     if (!Object.values(Action).includes(action as Action)) {
-                        console.error(`Invalid action: ${action}`);
+                        logger.error({ 
+                            message: 'Invalid action',
+                            action 
+                        });
                         return;
                     }
                     if (!Object.values(EntityType).includes(entityType as EntityType)) {
-                        console.error(`Invalid entityType: ${entityType}`);
+                        logger.error({ 
+                            message: 'Invalid entityType',
+                            entityType 
+                        });
                         return;
                     }
                     
@@ -80,12 +90,23 @@ async function initializeApp() {
                         ipAddress: ipAddress ?? null,
                         userAgent: userAgent ?? null,
                     });
-                    console.log(`Audit log created: ${action} on ${entityType}`);
+                    logger.info({ 
+                        message: 'Audit log created',
+                        action,
+                        entityType 
+                    });
                 } else {
-                    console.error("Missing required fields: action and entityType");
+                    logger.error({ 
+                        message: 'Missing required fields: action and entityType',
+                        event: message 
+                    });
                 }
             } catch (error) {
-                console.error("Error processing audit event:", error);
+                logger.error({ 
+                    message: 'Error processing audit event',
+                    error: error instanceof Error ? error.message : String(error),
+                    stack: error instanceof Error ? error.stack : undefined
+                });
             }
         });
 
@@ -94,23 +115,30 @@ async function initializeApp() {
 
         const PORT = process.env.PORT || 3002;
         app.listen(PORT, () => {
-            console.log(`Audit service running on http://localhost:${PORT}`);
+            logger.info({ 
+                message: 'Audit service started',
+                port: PORT 
+            });
         });
     } catch (error) {
-        console.error('Failed to initialize application:', error);
+        logger.error({ 
+            message: 'Failed to initialize application',
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+        });
         process.exit(1);
     }
 }
 
 process.on('SIGTERM', async () => {
-    console.log('SIGTERM received, shutting down gracefully...');
+    logger.info({ message: 'SIGTERM received, shutting down gracefully' });
     await Database.disconnect();
     await closeKafka();
     process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-    console.log('SIGINT received, shutting down gracefully...');
+    logger.info({ message: 'SIGINT received, shutting down gracefully' });
     await Database.disconnect();
     await closeKafka();
     process.exit(0);

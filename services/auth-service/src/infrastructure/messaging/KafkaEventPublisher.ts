@@ -1,5 +1,6 @@
 import { Kafka } from "kafkajs";
 import type { IEventPublisher } from "../../application/ports/IEventPublisher.js";
+import logger from '../config/logger.js';
 
 export class KafkaEventPublisher implements IEventPublisher {
     private producer: any;
@@ -37,7 +38,12 @@ export class KafkaEventPublisher implements IEventPublisher {
                 ],
             });
         } catch (error) {
-            console.error("Error publishing event:", error);
+            logger.error({ 
+                message: 'Error publishing event',
+                eventName,
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined
+            });
             throw error;
         }
     }

@@ -3,6 +3,7 @@ import type { IAuditLogRepository } from '../../domain/repositories/IAuditLogRep
 import { AuditLog } from '../../domain/entities/AuditLog.js';
 import { Action } from '../../domain/value-objects/Action.js';
 import { EntityType } from '../../domain/value-objects/EntityType.js';
+import logger from '../config/logger.js';
 
 interface AuditLogDocument extends mongoose.Document {
     id: string;
@@ -52,7 +53,10 @@ export class MongoAuditLogRepository implements IAuditLogRepository {
         } catch (error: any) {
             // Si el documento ya existe (duplicado), no es un error crítico para auditoría
             if (error.code === 11000) {
-                console.warn(`Audit log with id ${auditLog.getId()} already exists`);
+                logger.warn({ 
+                    message: 'Audit log already exists',
+                    auditLogId: auditLog.getId() 
+                });
                 return;
             }
             throw error;

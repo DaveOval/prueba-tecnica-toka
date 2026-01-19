@@ -1,5 +1,6 @@
 import type { ICacheService } from '../../application/ports/ICacheService.js';
 import { getRedisClient } from '../config/redis.js';
+import logger from '../config/logger.js';
 
 export class RedisCacheService implements ICacheService {
     private client = getRedisClient();
@@ -13,7 +14,11 @@ export class RedisCacheService implements ICacheService {
             }
             return JSON.parse(value) as T;
         } catch (error) {
-            console.error(`Error getting cache key ${key}:`, error);
+            logger.error({ 
+                message: 'Error getting cache key',
+                key,
+                error: error instanceof Error ? error.message : String(error)
+            });
             return null;
         }
     }
@@ -24,7 +29,11 @@ export class RedisCacheService implements ICacheService {
             const ttl = ttlSeconds ?? this.defaultTTL;
             await this.client.setex(key, ttl, serialized);
         } catch (error) {
-            console.error(`Error setting cache key ${key}:`, error);
+            logger.error({ 
+                message: 'Error setting cache key',
+                key,
+                error: error instanceof Error ? error.message : String(error)
+            });
         }
     }
 
@@ -32,7 +41,11 @@ export class RedisCacheService implements ICacheService {
         try {
             await this.client.del(key);
         } catch (error) {
-            console.error(`Error deleting cache key ${key}:`, error);
+            logger.error({ 
+                message: 'Error deleting cache key',
+                key,
+                error: error instanceof Error ? error.message : String(error)
+            });
         }
     }
 
@@ -43,7 +56,11 @@ export class RedisCacheService implements ICacheService {
                 await this.client.del(...keys);
             }
         } catch (error) {
-            console.error(`Error deleting cache pattern ${pattern}:`, error);
+            logger.error({ 
+                message: 'Error deleting cache pattern',
+                pattern,
+                error: error instanceof Error ? error.message : String(error)
+            });
         }
     }
 
@@ -52,7 +69,11 @@ export class RedisCacheService implements ICacheService {
             const result = await this.client.exists(key);
             return result === 1;
         } catch (error) {
-            console.error(`Error checking cache key ${key}:`, error);
+            logger.error({ 
+                message: 'Error checking cache key',
+                key,
+                error: error instanceof Error ? error.message : String(error)
+            });
             return false;
         }
     }
@@ -61,7 +82,10 @@ export class RedisCacheService implements ICacheService {
         try {
             await this.client.flushdb();
         } catch (error) {
-            console.error('Error clearing cache:', error);
+            logger.error({ 
+                message: 'Error clearing cache',
+                error: error instanceof Error ? error.message : String(error)
+            });
         }
     }
 }

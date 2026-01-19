@@ -3,6 +3,7 @@ from typing import Callable, Dict, Any
 import json
 import os
 import asyncio
+from src.infrastructure.config.logger import logger
 
 
 class KafkaEventConsumer:
@@ -36,8 +37,8 @@ class KafkaEventConsumer:
                 try:
                     await handler(message.value)
                 except Exception as e:
-                    print(f"Error processing message from topic {topic}: {e}")
+                    logger.error("Error processing message from topic", topic=topic, error=str(e), exc_info=True)
 
         # Ejecutar en un loop separado
         asyncio.create_task(consume_messages())
-        print(f"Subscribed to topic: {topic}")
+        logger.info("Subscribed to topic", topic=topic)

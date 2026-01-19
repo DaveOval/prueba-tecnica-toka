@@ -4,6 +4,8 @@ import chromadb
 from chromadb.config import Settings
 from src.domain.entities.document_chunk import DocumentChunk
 from src.domain.repositories.ivector_repository import IVectorRepository
+from src.infrastructure.config.logger import logger
+from src.infrastructure.config.logger import logger
 
 
 class ChromaVectorRepository(IVectorRepository):
@@ -26,12 +28,12 @@ class ChromaVectorRepository(IVectorRepository):
             except Exception as get_error:
                 # Si falla con error '_type', la colección está corrupta, eliminarla
                 if "'_type'" in str(get_error) or "_type" in str(get_error):
-                    print(f"Collection '{collection_name}' appears corrupted, attempting to delete...")
+                    logger.warning("Collection appears corrupted, attempting to delete", collection_name=collection_name)
                     try:
                         self.client.delete_collection(name=collection_name)
-                        print(f"Deleted corrupted collection '{collection_name}'")
+                        logger.info("Deleted corrupted collection", collection_name=collection_name)
                     except Exception as delete_error:
-                        print(f"Could not delete collection (may not exist): {delete_error}")
+                        logger.warning("Could not delete collection", collection_name=collection_name, error=str(delete_error))
                 
                 # Crear nueva colección con metadata válido (no vacío)
                 try:
@@ -39,7 +41,7 @@ class ChromaVectorRepository(IVectorRepository):
                         name=collection_name,
                         metadata={"description": "Document embeddings collection"}
                     )
-                    print(f"Created collection '{collection_name}'")
+                    logger.info("Created collection", collection_name=collection_name)
                     return True
                 except Exception as create_error:
                     # Si ya existe, intentar obtenerla de nuevo
@@ -50,10 +52,10 @@ class ChromaVectorRepository(IVectorRepository):
                         except:
                             return False
                     else:
-                        print(f"Error creating collection: {create_error}")
+                        logger.error("Error creating collection", collection_name=collection_name, error=str(create_error))
                         return False
         except Exception as e:
-            print(f"Error creating/accessing collection: {e}")
+            logger.error("Error creating/accessing collection", collection_name=collection_name, error=str(e), exc_info=True)
             return False
 
     async def upsert_chunks(
@@ -67,12 +69,12 @@ class ChromaVectorRepository(IVectorRepository):
             except Exception as get_error:
                 # Si falla con error '_type', la colección está corrupta, eliminarla y recrearla
                 if "'_type'" in str(get_error) or "_type" in str(get_error):
-                    print(f"Collection '{collection_name}' appears corrupted, attempting to delete and recreate...")
+                    logger.warning("Collection appears corrupted, attempting to delete and recreate", collection_name=collection_name)
                     try:
                         self.client.delete_collection(name=collection_name)
-                        print(f"Deleted corrupted collection '{collection_name}'")
+                        logger.info("Deleted corrupted collection", collection_name=collection_name)
                     except Exception as delete_error:
-                        print(f"Could not delete collection (may not exist): {delete_error}")
+                        logger.warning("Could not delete collection", collection_name=collection_name, error=str(delete_error))
                 
                 # Crear nueva colección con metadata válido (no vacío)
                 try:
@@ -80,7 +82,7 @@ class ChromaVectorRepository(IVectorRepository):
                         name=collection_name,
                         metadata={"description": "Document embeddings collection"}
                     )
-                    print(f"Created new collection '{collection_name}'")
+                    logger.info("Created new collection", collection_name=collection_name)
                 except Exception as create_error:
                     # Si ya existe, intentar obtenerla de nuevo
                     if "already exists" in str(create_error).lower():
@@ -93,7 +95,7 @@ class ChromaVectorRepository(IVectorRepository):
                                 metadata={"description": "Document embeddings collection"}
                             )
                     else:
-                        print(f"Error creating collection: {create_error}")
+                        logger.error("Error creating collection", collection_name=collection_name, error=str(create_error))
                         raise Exception(f"Could not access or create collection: {create_error}")
             
             ids = []
@@ -108,12 +110,10 @@ class ChromaVectorRepository(IVectorRepository):
                 ids.append(chunk.id)
                 embeddings.append(chunk.embedding)
                 documents.append(chunk.content)
-                # Asegurar que los metadatos sean serializables (solo strings, números, bools)
                 clean_metadata = {
                     "document_id": str(chunk.document_id),
                     "chunk_index": str(chunk.chunk_index),
                 }
-                # Agregar metadata adicional solo si es serializable
                 for k, v in chunk.metadata.items():
                     if isinstance(v, (str, int, float, bool)) or v is None:
                         clean_metadata[k] = str(v) if v is not None else ""
@@ -127,13 +127,11 @@ class ChromaVectorRepository(IVectorRepository):
                     documents=documents,
                     metadatas=metadatas
                 )
-                print(f"Successfully upserted {len(ids)} chunks to collection '{collection_name}'")
+                logger.info("Successfully upserted chunks", collection_name=collection_name, chunks_count=len(ids))
             return True
         except Exception as e:
-            print(f"Error upserting chunks: {e}")
-            import traceback
-            traceback.print_exc()
-            raise  # Lanzar la excepción en lugar de retornar False
+            logger.error("Error upserting chunks", collection_name=collection_name, error=str(e), exc_info=True)
+            raise
 
     async def search_similar(
         self,
@@ -144,10 +142,6 @@ class ChromaVectorRepository(IVectorRepository):
     ) -> List[dict]:
         try:
             collection = self.client.get_collection(name=collection_name)
-            
-            # Chroma usa distancia, no score. Convertimos threshold a distancia
-            # Para cosine similarity: distance = 1 - similarity
-            # score_threshold de 0.7 = distance_threshold de 0.3
             distance_threshold = 1.0 - score_threshold
             
             results = collection.query(
@@ -155,13 +149,11 @@ class ChromaVectorRepository(IVectorRepository):
                 n_results=limit,
             )
             
-            # Chroma devuelve resultados en formato diferente
             output = []
             if results['ids'] and len(results['ids'][0]) > 0:
                 for i in range(len(results['ids'][0])):
-                    # Chroma devuelve distances, las convertimos a scores
                     distance = results['distances'][0][i] if results.get('distances') else 0.0
-                    score = 1.0 - distance  # Convertir distancia a similitud
+                    score = 1.0 - distance
                     
                     if score >= score_threshold:
                         output.append({
@@ -179,7 +171,7 @@ class ChromaVectorRepository(IVectorRepository):
             
             return output
         except Exception as e:
-            print(f"Error searching similar: {e}")
+            logger.error("Error searching similar", collection_name=collection_name, error=str(e), exc_info=True)
             return []
 
     async def delete_document_chunks(
@@ -198,5 +190,5 @@ class ChromaVectorRepository(IVectorRepository):
             
             return True
         except Exception as e:
-            print(f"Error deleting chunks: {e}")
+            logger.error("Error deleting chunks", collection_name=collection_name, document_id=document_id, error=str(e), exc_info=True)
             return False

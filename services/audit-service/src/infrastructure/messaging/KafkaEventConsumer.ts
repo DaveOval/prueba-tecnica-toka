@@ -1,5 +1,6 @@
 import { Kafka } from "kafkajs";
 import type { IEventConsumer } from "../../application/ports/IEventConsumer.js";
+import logger from '../config/logger.js';
 
 export class KafkaEventConsumer implements IEventConsumer {
     private consumer: any;
@@ -21,7 +22,7 @@ export class KafkaEventConsumer implements IEventConsumer {
 
         await this.consumer.connect();
         this.isRunning = true;
-        console.log("Kafka consumer connected");
+        logger.info({ message: 'Kafka consumer connected' });
     }
 
     async stop(): Promise<void> {
@@ -31,7 +32,7 @@ export class KafkaEventConsumer implements IEventConsumer {
 
         await this.consumer.disconnect();
         this.isRunning = false;
-        console.log("Kafka consumer disconnected");
+        logger.info({ message: 'Kafka consumer disconnected' });
     }
 
     async subscribe(topic: string, handler: (message: any) => Promise<void>): Promise<void> {
@@ -50,11 +51,19 @@ export class KafkaEventConsumer implements IEventConsumer {
                         await handler(payload);
                     }
                 } catch (error) {
-                    console.error(`Error processing message from topic ${topic}:`, error);
+                    logger.error({ 
+                        message: 'Error processing message from topic',
+                        topic,
+                        error: error instanceof Error ? error.message : String(error),
+                        stack: error instanceof Error ? error.stack : undefined
+                    });
                 }
             },
         });
 
-        console.log(`Subscribed to topic: ${topic}`);
+        logger.info({ 
+            message: 'Subscribed to topic',
+            topic 
+        });
     }
 }

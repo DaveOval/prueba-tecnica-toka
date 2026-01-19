@@ -1,6 +1,7 @@
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import type { StringValue } from 'ms';
 import type { ITokenService } from "../../application/ports/ITokenService.js";
+import logger from '../config/logger.js';
 
 export class JwtTokenService implements ITokenService {
     private readonly accessTokenSecret: string;
@@ -42,7 +43,10 @@ export class JwtTokenService implements ITokenService {
             };
             return { userId: decoded.userId, email: decoded.email, role: decoded.role || 'user' };
         } catch (error) {
-            console.error("Error verifying token:", error);
+            logger.error({ 
+                message: 'Error verifying token',
+                error: error instanceof Error ? error.message : String(error)
+            });
             return null;
         }
     }

@@ -15,6 +15,7 @@ import { DeleteUserProfileUseCase } from './application/use-cases/DeleteUserProf
 import { UserController } from './presentation/controllers/UserController.js';
 import { createUserRoutes } from './presentation/routes/user.routes.js';
 import { errorHandler } from './presentation/middlewares/errorHandler.js';
+import logger from './infrastructure/config/logger.js';
 
 const app = express();
 
@@ -36,19 +37,19 @@ async function initializeApp() {
     try {
         // Initialize database
         await Database.initialize();
-        console.log('Database initialized');
+        logger.info({ message: 'Database initialized' });
 
         // Initialize Redis
         getRedisClient();
-        console.log('Redis initialized');
+        logger.info({ message: 'Redis initialized' });
 
         // Initialize Kafka consumer
         const eventConsumer = await initializeKafka();
-        console.log('Kafka consumer initialized');
+        logger.info({ message: 'Kafka consumer initialized' });
 
         // Initialize Kafka publisher
         const eventPublisher = await initializeKafkaPublisher();
-        console.log('Kafka publisher initialized');
+        logger.info({ message: 'Kafka publisher initialized' });
 
         // Initialize infrastructure services
         const userProfileRepository = new PostgresUserProfileRepository();
@@ -79,7 +80,10 @@ async function initializeApp() {
         // Subscribe to user.registered events from auth-service
         await eventConsumer.subscribe("user.registered", async (message) => {
             try {
-                console.log("Received user.registered event:", message);
+                logger.info({ 
+                    message: 'Received user.registered event',
+                    event: message 
+                });
                 const { userId, email } = message;
                 
                 if (userId && email) {
@@ -87,10 +91,17 @@ async function initializeApp() {
                         id: userId,
                         email: email,
                     });
-                    console.log(`Created user profile for user: ${userId}`);
+                    logger.info({ 
+                        message: 'Created user profile',
+                        userId 
+                    });
                 }
             } catch (error) {
-                console.error("Error processing user.registered event:", error);
+                logger.error({ 
+                    message: 'Error processing user.registered event',
+                    error: error instanceof Error ? error.message : String(error),
+                    stack: error instanceof Error ? error.stack : undefined
+                });
             }
         });
 
@@ -99,16 +110,23 @@ async function initializeApp() {
 
         const PORT = process.env.PORT || 3001;
         app.listen(PORT, () => {
-            console.log(`User service running on http://localhost:${PORT}`);
+            logger.info({ 
+                message: 'User service started',
+                port: PORT 
+            });
         });
     } catch (error) {
-        console.error('Failed to initialize application:', error);
+        logger.error({ 
+            message: 'Failed to initialize application',
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+        });
         process.exit(1);
     }
 }
 
 process.on('SIGTERM', async () => {
-    console.log('SIGTERM received, shutting down gracefully...');
+    logger.info({ message: 'SIGTERM received, shutting down gracefully' });
     await Database.close();
     await closeKafka();
     await closeRedis();
@@ -116,7 +134,7 @@ process.on('SIGTERM', async () => {
 });
 
 process.on('SIGINT', async () => {
-    console.log('SIGINT received, shutting down gracefully...');
+    logger.info({ message: 'SIGINT received, shutting down gracefully' });
     await Database.close();
     await closeKafka();
     await closeRedis();

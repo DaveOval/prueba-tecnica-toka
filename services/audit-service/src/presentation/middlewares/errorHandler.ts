@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import logger from '../../infrastructure/config/logger.js';
 
 export class AppError extends Error {
     constructor(
@@ -28,7 +29,11 @@ export function errorHandler(
         return;
     }
 
-    console.error('Unexpected error:', error);
+    logger.error({ 
+        message: 'Unexpected error',
+        error: error.message,
+        stack: error.stack
+    });
     res.status(500).json({
         error: {
             message: 'Internal server error',

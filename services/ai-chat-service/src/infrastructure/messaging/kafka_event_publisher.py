@@ -3,6 +3,7 @@ from typing import Dict, Any
 import json
 import os
 from src.application.ports.ievent_publisher import IEventPublisher
+from src.infrastructure.config.logger import logger
 
 
 class KafkaEventPublisher(IEventPublisher):
@@ -32,5 +33,5 @@ class KafkaEventPublisher(IEventPublisher):
             self.producer.send(event_name, key=key, value=value)
             self.producer.flush()
         except Exception as e:
-            print(f"Error publishing event: {e}")
+            logger.error("Error publishing event", event_name=event_name, error=str(e), exc_info=True)
             raise

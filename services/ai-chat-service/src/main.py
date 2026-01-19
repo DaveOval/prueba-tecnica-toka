@@ -14,6 +14,7 @@ from src.infrastructure.repositories.redis_prompt_repository import RedisPromptR
 from src.infrastructure.messaging.kafka_event_publisher import KafkaEventPublisher
 from src.application.use_cases.send_message_use_case import SendMessageUseCase
 from src.domain.entities.prompt_template import PromptTemplate
+from src.infrastructure.config.logger import logger
 
 load_dotenv()
 
@@ -57,10 +58,10 @@ async def get_user_id(authorization: Optional[str] = Header(None)) -> str:
         return user_id
     except JWTError as e:
         # Token inválido o expirado - en producción debería lanzar HTTPException(401)
-        print(f"Error decoding JWT: {e}")
+        logger.warning("Error decoding JWT", error=str(e))
         return "temp-user-id"
     except Exception as e:
-        print(f"Error decoding JWT: {e}")
+        logger.warning("Error decoding JWT", error=str(e))
         return "temp-user-id"
 
 # Request models
@@ -154,33 +155,29 @@ async def chat(
     user_prompt_template = None
     
     if request.promptTemplateId:
-        print(f"[Chat] Using prompt template ID: {request.promptTemplateId}")
+        logger.info("Using prompt template", prompt_template_id=request.promptTemplateId)
         try:
             prompt_template = await prompt_repository.get_by_id(request.promptTemplateId)
             if prompt_template:
                 system_prompt = prompt_template.system_prompt
                 user_prompt_template = prompt_template.user_prompt_template
-                print(f"[Chat] ✓ Loaded prompt template: {prompt_template.name}")
-                print(f"[Chat] ✓ System prompt length: {len(system_prompt)} chars")
-                if user_prompt_template:
-                    print(f"[Chat] ✓ User prompt template length: {len(user_prompt_template)} chars")
-                else:
-                    print(f"[Chat] No user prompt template in this template")
+                logger.info("Loaded prompt template", 
+                    prompt_name=prompt_template.name,
+                    system_prompt_length=len(system_prompt),
+                    has_user_template=user_prompt_template is not None,
+                    user_template_length=len(user_prompt_template) if user_prompt_template else 0
+                )
             else:
-                print(f"[Chat] ✗ WARNING: Prompt template {request.promptTemplateId} not found in Redis")
-                print(f"[Chat] Available prompts in Redis:")
+                logger.warning("Prompt template not found in Redis", prompt_template_id=request.promptTemplateId)
                 try:
                     all_prompts = await prompt_repository.get_all()
-                    for p in all_prompts:
-                        print(f"[Chat]   - {p.id}: {p.name}")
+                    logger.info("Available prompts in Redis", prompt_count=len(all_prompts))
                 except Exception as e:
-                    print(f"[Chat] Error listing prompts: {e}")
+                    logger.error("Error listing prompts", error=str(e))
         except Exception as e:
-            print(f"[Chat] ✗ ERROR loading prompt template: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error("Error loading prompt template", prompt_template_id=request.promptTemplateId, error=str(e), exc_info=True)
     else:
-        print(f"[Chat] No prompt template ID provided, using default system prompt")
+        logger.info("No prompt template ID provided, using default system prompt")
 
     use_case = SendMessageUseCase(
         llm_service=llm_service,
@@ -212,7 +209,7 @@ async def get_prompts():
             "data": [prompt.to_dict() for prompt in prompts]
         }
     except Exception as e:
-        print(f"Error getting prompts: {e}")
+        logger.error("Error getting prompts", error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -256,7 +253,7 @@ async def create_prompt(
             "data": created_prompt.to_dict()
         }
     except Exception as e:
-        print(f"Error creating prompt: {e}")
+        logger.error("Error creating prompt", error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -274,7 +271,7 @@ async def get_prompt(prompt_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error getting prompt: {e}")
+        logger.error("Error getting prompt", prompt_id=prompt_id, error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -328,7 +325,7 @@ async def update_prompt(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error updating prompt: {e}")
+        logger.error("Error updating prompt", prompt_id=prompt_id, error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -370,7 +367,7 @@ async def delete_prompt(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error deleting prompt: {e}")
+        logger.error("Error deleting prompt", prompt_id=prompt_id, error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

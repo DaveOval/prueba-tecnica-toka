@@ -14,6 +14,7 @@ from src.infrastructure.messaging.kafka_event_consumer import KafkaEventConsumer
 from src.infrastructure.services.openai_embedding_service import OpenAIEmbeddingService
 from src.infrastructure.services.document_processor import DocumentProcessor
 from src.infrastructure.vector_db.chroma_vector_repository import ChromaVectorRepository
+from src.infrastructure.config.logger import logger
 
 load_dotenv()
 
@@ -60,16 +61,16 @@ async def get_user_id(authorization: Optional[str] = Header(None)) -> str:
         return user_id
     except JWTError as e:
         # Token inválido o expirado - en producción debería lanzar HTTPException(401)
-        print(f"Error decoding JWT: {e}")
+        logger.warning("Error decoding JWT", error=str(e))
         return "temp-user-id"
     except Exception as e:
-        print(f"Error decoding JWT: {e}")
+        logger.warning("Error decoding JWT", error=str(e))
         return "temp-user-id"
 
 # Inicializar colección (lazy - se crea cuando se necesita)
 @app.on_event("startup")
 async def startup():
-    print("Application startup complete")
+    logger.info("Application startup complete")
 
 async def handle_document_uploaded(message: dict):
     """Maneja el evento de documento subido para procesarlo"""
@@ -79,22 +80,22 @@ async def handle_document_uploaded(message: dict):
     file_name = message.get("fileName", "unknown")
     
     if not document_id or not file_path:
-        print(f"Missing documentId or filePath in message: {message}")
+        logger.warning("Missing documentId or filePath in message", message=message)
         return
     
     try:
-        print(f"Processing document {document_id}: {file_path}")
+        logger.info("Processing document", document_id=document_id, file_path=file_path)
         
         # 1. Procesar archivo y obtener chunks de texto
         text_chunks = await document_processor.process_file(file_path)
-        print(f"Document {document_id}: Extracted {len(text_chunks)} chunks")
+        logger.info("Document chunks extracted", document_id=document_id, chunks_count=len(text_chunks))
         
         if not text_chunks:
             raise ValueError("No text chunks extracted from document")
         
         # 2. Generar embeddings para todos los chunks
         embeddings = await embedding_service.generate_embeddings_batch(text_chunks)
-        print(f"Document {document_id}: Generated {len(embeddings)} embeddings")
+        logger.info("Document embeddings generated", document_id=document_id, embeddings_count=len(embeddings))
         
         # 3. Crear entidades DocumentChunk
         from src.domain.entities.document_chunk import DocumentChunk
@@ -115,7 +116,7 @@ async def handle_document_uploaded(message: dict):
         
         # 4. Guardar chunks en Chroma
         await vector_repository.upsert_chunks("documents", document_chunks)
-        print(f"Document {document_id}: Saved {len(document_chunks)} chunks to Chroma")
+        logger.info("Document chunks saved to Chroma", document_id=document_id, chunks_count=len(document_chunks))
         
         # 5. Publicar evento de completado
         await event_publisher.publish(
@@ -148,12 +149,10 @@ async def handle_document_uploaded(message: dict):
         except:
             pass  # No crítico si falla
         
-        print(f"Document {document_id} processed successfully!")
+        logger.info("Document processed successfully", document_id=document_id)
         
     except Exception as e:
-        print(f"Error processing document {document_id}: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error("Error processing document", document_id=document_id, error=str(e), exc_info=True)
         
         # Publicar evento de error
         await event_publisher.publish(
@@ -262,7 +261,7 @@ async def upload_document(
             pass  # Ya existe o se creará automáticamente
         
         # Procesar directamente
-        print(f"Processing document {document_id}: {file_path}")
+        logger.info("Processing document", document_id=document_id, file_path=file_path)
         
         # 1. Procesar archivo y obtener chunks
         text_chunks = await document_processor.process_file(file_path)
@@ -344,9 +343,7 @@ async def upload_document(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error processing document: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error("Error processing document", error=str(e), exc_info=True)
         
         # Publicar evento de auditoría: Error al procesar documento
         try:
@@ -433,9 +430,7 @@ async def get_documents():
         
         return {"success": True, "data": documents_list}
     except Exception as e:
-        print(f"Error getting documents: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error("Error getting documents", error=str(e), exc_info=True)
         # Si hay error, retornar lista vacía en lugar de fallar
         return {"success": True, "data": []}
 
@@ -496,7 +491,7 @@ async def delete_document(
         
         return {"success": True, "message": "Document deleted"}
     except Exception as e:
-        print(f"Error deleting document {document_id}: {e}")
+        logger.error("Error deleting document", document_id=document_id, error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

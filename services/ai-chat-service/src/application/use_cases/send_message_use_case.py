@@ -5,6 +5,7 @@ from src.domain.entities.conversation import Conversation
 from src.application.ports.illm_service import ILLMService
 from src.application.ports.ivector_search import IVectorSearch
 from src.application.ports.iembedding_service import IEmbeddingService
+from src.infrastructure.config.logger import logger
 import uuid
 
 
@@ -54,36 +55,36 @@ class SendMessageUseCase:
             )
             
             if is_generic:
-                print(f"[RAG] Generic query detected, skipping document search: {user_message[:50]}")
+                logger.info("Generic query detected, skipping document search", message_preview=user_message[:50])
                 context_chunks = []
             else:
-                print(f"[RAG] Generating embedding for query: {user_message[:100]}...")
+                logger.info("Generating embedding for query", message_preview=user_message[:100])
                 try:
                     query_embedding = await self.embedding_service.generate_embedding(
                         user_message
                     )
-                    print(f"[RAG] Embedding generated, length: {len(query_embedding)}")
+                    logger.info("Embedding generated", embedding_length=len(query_embedding))
                 except Exception as e:
-                    print(f"[RAG] Error generating embedding: {e}")
-                    import traceback
-                    traceback.print_exc()
+                    logger.error("Error generating embedding", error=str(e), exc_info=True)
                     raise
                 
                 try:
-                    print(f"[RAG] Searching for similar chunks...")
+                    logger.info("Searching for similar chunks")
                     context_chunks = await self.vector_search.search_similar(
                         query_embedding, limit=5  # Aumentar a 5 chunks para mejor contexto
                     )
-                    print(f"[RAG] Found {len(context_chunks)} context chunks")
+                    logger.info("Found context chunks", chunks_count=len(context_chunks))
                     if context_chunks:
                         for idx, chunk in enumerate(context_chunks):
-                            print(f"[RAG] Chunk {idx+1}: score={chunk.get('score', 0):.3f}, doc={chunk.get('metadata', {}).get('document_name', 'unknown')}")
+                            logger.debug("Context chunk found",
+                                chunk_index=idx+1,
+                                score=chunk.get('score', 0),
+                                document_name=chunk.get('metadata', {}).get('document_name', 'unknown')
+                            )
                     else:
-                        print(f"[RAG] WARNING: No context chunks found! RAG will not work properly.")
+                        logger.warning("No context chunks found, RAG will not work properly")
                 except Exception as e:
-                    print(f"[RAG] Error searching similar: {e}")
-                    import traceback
-                    traceback.print_exc()
+                    logger.error("Error searching similar", error=str(e), exc_info=True)
                     # Continuar sin contexto en lugar de fallar
                     context_chunks = []
 
@@ -115,7 +116,7 @@ INSTRUCCIONES:
 """
         else:
             # Si no hay contexto, informar al LLM
-            print(f"[RAG] WARNING: No context chunks found. RAG will not be used.")
+            logger.warning("No context chunks found, RAG will not be used")
             context_text = """IMPORTANTE: No se encontró información relevante en los documentos vectorizados del sistema para responder esta consulta.
 
 INSTRUCCIONES:
@@ -130,9 +131,9 @@ INSTRUCCIONES:
         # System prompt base
         base_system_prompt = self.system_prompt or "Eres un asistente útil que responde preguntas basándote en el contexto proporcionado."
         
-        print(f"[RAG] Using system prompt (length: {len(base_system_prompt)} chars)")
+        logger.debug("Using system prompt", system_prompt_length=len(base_system_prompt))
         if self.user_prompt_template:
-            print(f"[RAG] Using user prompt template (length: {len(self.user_prompt_template)} chars)")
+            logger.debug("Using user prompt template", user_template_length=len(self.user_prompt_template))
         
         # Si hay contexto RAG, agregarlo al system prompt
         if context_text:
@@ -140,10 +141,10 @@ INSTRUCCIONES:
 
 {context_text}"""
             messages.append({"role": "system", "content": system_prompt_with_context})
-            print(f"[RAG] System prompt with RAG context (total length: {len(system_prompt_with_context)} chars)")
+            logger.debug("System prompt with RAG context", total_length=len(system_prompt_with_context))
         else:
             messages.append({"role": "system", "content": base_system_prompt})
-            print(f"[RAG] System prompt without RAG context")
+            logger.debug("System prompt without RAG context")
 
         # Aplicar user prompt template si existe
         if self.user_prompt_template:
@@ -153,7 +154,7 @@ INSTRUCCIONES:
                 # Si no hay placeholder, concatenar
                 formatted_user_message = f"{self.user_prompt_template}\n\n{user_message}"
             messages.append({"role": "user", "content": formatted_user_message})
-            print(f"[RAG] Using user prompt template (length: {len(formatted_user_message)} chars)")
+            logger.debug("Using user prompt template", formatted_length=len(formatted_user_message))
         else:
             messages.append({"role": "user", "content": user_message})
 

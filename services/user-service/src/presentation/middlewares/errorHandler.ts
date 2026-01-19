@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
+import logger from '../../infrastructure/config/logger.js';
 
 
 export class AppError extends Error {
@@ -29,7 +30,11 @@ export const errorHandler = (
         return;
     }
 
-    console.error("Unexpected error:", err);
+    logger.error({ 
+        message: 'Unexpected error',
+        error: err.message,
+        stack: err.stack
+    });
     res.status(500).json({
         status: false,
         error: {

@@ -3,6 +3,7 @@ import os
 import chromadb
 from chromadb.config import Settings
 from src.application.ports.ivector_search import IVectorSearch
+from src.infrastructure.config.logger import logger
 
 
 class ChromaVectorSearch(IVectorSearch):
@@ -20,41 +21,40 @@ class ChromaVectorSearch(IVectorSearch):
         self, query_embedding: List[float], limit: int = 5
     ) -> List[Dict]:
         try:
-            print(f"[ChromaVectorSearch] Connecting to ChromaDB at {os.getenv('CHROMA_HOST', 'localhost')}:{os.getenv('CHROMA_PORT', '8000')}")
-            print(f"[ChromaVectorSearch] Collection name: {self.collection_name}")
+            chroma_host = os.getenv('CHROMA_HOST', 'localhost')
+            chroma_port = os.getenv('CHROMA_PORT', '8000')
+            logger.debug("Connecting to ChromaDB", host=chroma_host, port=chroma_port, collection_name=self.collection_name)
             
             collection = self.client.get_collection(name=self.collection_name)
-            print(f"[ChromaVectorSearch] Collection retrieved successfully")
+            logger.debug("Collection retrieved successfully", collection_name=self.collection_name)
             
             # Verificar si la colección tiene datos
             count_result = collection.count()
-            print(f"[ChromaVectorSearch] Collection has {count_result} items")
+            logger.debug("Collection count", collection_name=self.collection_name, count=count_result)
             
             if count_result == 0:
-                print(f"[ChromaVectorSearch] WARNING: Collection is empty! No documents to search.")
+                logger.warning("Collection is empty, no documents to search", collection_name=self.collection_name)
                 return []
             
             score_threshold = 0.7
             distance_threshold = 1.0 - score_threshold
             
-            print(f"[ChromaVectorSearch] Querying with limit={limit}, embedding_dim={len(query_embedding)}")
+            logger.debug("Querying ChromaDB", limit=limit, embedding_dim=len(query_embedding))
             results = collection.query(
                 query_embeddings=[query_embedding],
                 n_results=limit,
             )
-            print(f"[ChromaVectorSearch] Query completed. Results structure: {list(results.keys())}")
+            logger.debug("Query completed", results_structure=list(results.keys()))
             
             # Chroma devuelve resultados en formato diferente
             output = []
             if results.get('ids') and len(results['ids'][0]) > 0:
-                print(f"[ChromaVectorSearch] Processing {len(results['ids'][0])} results")
+                logger.debug("Processing results", results_count=len(results['ids'][0]))
                 for i in range(len(results['ids'][0])):
                     # Chroma devuelve distances, las convertimos a scores
                     distance = results['distances'][0][i] if results.get('distances') and len(results['distances'][0]) > i else 0.0
                 
                     score = 1.0 / (1.0 + distance)
-                    
-                    print(f"[ChromaVectorSearch] Result {i+1}: distance={distance:.4f}, score={score:.4f}")
                     
                     if score >= 0.5:
                         metadata_dict = {}
@@ -64,7 +64,12 @@ class ChromaVectorSearch(IVectorSearch):
                         content = results['documents'][0][i] if results.get('documents') and len(results['documents'][0]) > i else ""
                         doc_name = metadata_dict.get("document_name", "unknown") if metadata_dict else "unknown"
                         
-                        print(f"[ChromaVectorSearch] Adding chunk {i+1}: doc={doc_name}, content_length={len(content)}")
+                        logger.debug("Adding chunk", 
+                            chunk_index=i+1,
+                            document_name=doc_name,
+                            content_length=len(content),
+                            score=score
+                        )
                         
                         output.append({
                             "id": results['ids'][0][i],
@@ -79,14 +84,12 @@ class ChromaVectorSearch(IVectorSearch):
                             },
                         })
                     else:
-                        print(f"[ChromaVectorSearch] Result {i+1} filtered out (score {score:.4f} < 0.05)")
+                        logger.debug("Result filtered out", chunk_index=i+1, score=score)
             else:
-                print(f"[ChromaVectorSearch] No results returned from query")
+                logger.debug("No results returned from query")
             
-            print(f"[ChromaVectorSearch] Returning {len(output)} similar chunks")
+            logger.info("Returning similar chunks", chunks_count=len(output))
             return output
         except Exception as e:
-            print(f"[ChromaVectorSearch] ERROR searching similar: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error("Error searching similar", error=str(e), exc_info=True)
             return []
